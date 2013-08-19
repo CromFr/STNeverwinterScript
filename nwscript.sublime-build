@@ -1,0 +1,7 @@
+{
+	"cmd": ["C:\\Program Files (x86)\\NWNScriptCompiler\\NWNScriptCompiler.exe","-i","C:\\Program Files (x86)\\NWNScriptCompiler\\Scripts","-v169","-q","-g","-e","-o","-r","${file_path}","-x","#ERROR#","${file}"],
+	"selector": "source.nss",
+	"file_regex": "^\\s*([^\\(]+)\\(([0-9]+)\\): #ERROR#: .*$",
+	"encoding": "cp850",
+	"shell": true
+}
