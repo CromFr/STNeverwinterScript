@@ -4,10 +4,14 @@
     "completions":
     [
         { 
-		"trigger": ".while.validnext", 
-		"contents": "${1:/*Variable Type*/} ${2:/*Variable Name*/}=GetFirst${3:/*Get Type*/}(${4:/*Get Args*/});\nwhile(GetIs${1:/*Variable Type*/}Valid(${2:/*Variable Name*/}))\n{\n\t${0:/* code */}\n\t${2:/*variable*/}=GetNext${3:/*Get Type*/}(${4:/*Get Args*/});\n}",
+		"trigger": ".while.firstnextvalid", 
+		"contents": "${1:/*Variable Type*/} ${2:/*Variable Name*/}=GetFirst${3:/*Getter*/};\nwhile(GetIs${1:/*Variable Type*/}Valid(${2:/*Variable Name*/}))\n{\n\t${0:/* code */}\n\t${2:/*variable*/}=GetNext${3:/*Getter*/};\n}",
         "description": "While loop to browse data with GetFirst[...]/GetNext[...]"
     	},
+        { 
+        "trigger": ".while.indexedvalid", 
+        "contents": "int iIndex=${4:/*Start Index*/};\n${1:/*Variable Type*/} ${2:/*Variable Name*/}=Get${3:/*Getter*/};\nwhile(GetIs${1:/*Variable Type*/}Valid(${2:/*Variable Name*/}))\n{\n\t${0:/*Code*/}\n\tiIndex++;\n\t${2:/*variable*/}=Get${3:/*Getter*/};\n}"
+        },
         { 
 		"trigger": ".while", 
 		"contents": "while(${1:/*Condition*/})\n{\n\t${0:/*Code*/}\n}"
@@ -45,12 +49,12 @@
 		"contents": "#include \"${1:${TM_FILENAME/\\..+$/_inc/}}\""
     	},
         { 
-		"trigger": ".void main", 
+		"trigger": ".main", 
 		"contents": "void main(${1:/*Args*/})\n{\n\t${0:/*Code*/}\n}"
     	},
         { 
-		"trigger": "StartingConditional.", 
-		"contents": "int StartingConditional(${1:/*Args*/})\n{\n\t${0:/*Code*/}\n\treturn TRUE;\n}"
+		"trigger": ".StartingConditional", 
+		"contents": "int StartingConditional(${1:/*Args*/})\n{\n\t${0:/*Code*/}\n\treturn FALSE;\n}"
     	},
     ]
 }

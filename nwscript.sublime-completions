@@ -23866,5 +23866,23 @@
 },{
 "trigger": "RecallCreatureFromLimboToLocation",
 "contents": "RecallCreatureFromLimboToLocation(${1:/*object oCreature*/}, ${2:/*location loc*/})"
+},{
+"trigger": "FloatingTextStringOnCreature",
+"contents": "FloatingTextStringOnCreature(${1:/*string sStringToDisplay*/}, ${2:/*object oCreatureToFloatAbove*/}, ${3:/*int bBroadcastToFaction=TRUE*/}, ${4:/*float fDuration=5.0*/}, ${5:/*int nStartColor=4294967295*/}, ${4:/*int nEndColor=4294967295*/}, ${7:/*float fSpeed=0.0*/}, ${8:/*vector vDirection=[0.0,0.0,0.0]*/})"
+},{
+"trigger": "FloatingTextStrRefOnCreature",
+"contents": "FloatingTextStrRefOnCreature(${1:/*int nStrRefToDisplay*/}, ${2:/*object oCreatureToFloatAbove*/}, ${3:/*int bBroadcastToFaction=TRUE*/}, ${4:/*float fDuration=5.0*/}, ${5:/*int nStartColor=4294967295*/}, ${4:/*int nEndColor=4294967295*/}, ${7:/*float fSpeed=0.0*/}, ${8:/*vector vDirection=[0.0,0.0,0.0]*/})"
+},{
+"trigger": "DisplayMessageBox",
+"contents": "DisplayMessageBox(${1:/*object oPC*/}, ${2:/*int nMessageStrRef*/}, ${3:/*string sMessage*/}, ${4:/*string sOkCB=\\\"\\\"*/}, ${5:/*string sCancelCB=\\\"\\\"*/}, ${6:/*int bShowCancel=FALSE*/}, ${7:/*string sScreenName=\\\"\\\"*/}, ${8:/*int nOkStrRef=0*/}, ${9:/*string sOkString=\\\"\\\"*/}, ${10:/*int nCancelStrRef=0*/}, ${11:/*string sCancelString=\\\"\\\"*/})"
+},{
+"trigger": "DisplayInputBox",
+"contents": "DisplayInputBox(${1:/*object oPC*/}, ${2:/*int nMessageStrRef*/}, ${3:/*string sMessage*/}, ${4:/*string sOkCB=\\\"\\\"*/}, ${5:/*string sCancelCB=\\\"\\\"*/}, ${6:/*int bShowCancel=FALSE*/}, ${7:/*string sScreenName=\\\"\\\"*/}, ${8:/*int nOkStrRef=0*/}, ${9:/*string sOkString=\\\"\\\"*/}, ${10:/*int nCancelStrRef=0*/}, ${11:/*string sCancelString=\\\"\\\"*/}, ${12:/*string sDefaultString=\\\"\\\"*/}, ${13:/*string sUnusedString=\\\"\\\"*/})"
+},{
+"trigger": "CreateTrapAtLocation",
+"contents": "CreateTrapAtLocation(${1:/*int nTrapType*/}, ${2:/*location lLocation*/}, ${3:/*float fSize=2.0f*/}, ${4:/*string sTag=\\\"\\\"*/}, ${5:/*int nFaction=STANDARD_FACTION_HOSTILE*/}, ${6:/*string sOnDisarmScript=\\\"\\\"*/}, ${7:/*string sOnTrapTriggeredScript=\\\"\\\"*/})"
+},{
+"trigger": "CreateTrapOnObject",
+"contents": "CreateTrapOnObject(${1:/*int nTrapType*/}, ${2:/*object oObject*/}, ${3:/*int nFaction=STANDARD_FACTION_HOSTILE*/}, ${4:/*string sOnDisarmScript=\\\"\\\"*/}, ${5:/*string sOnTrapTriggeredScript=\\\"\\\"*/})"
 }]
 }
