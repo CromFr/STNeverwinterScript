@@ -1,3 +1,4 @@
+// [PackageDev] target_format: plist, ext: tmLanguage
 {
     "fileTypes": [
         "nss"
