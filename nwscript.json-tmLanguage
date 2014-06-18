@@ -1,9 +1,10 @@
 // [PackageDev] target_format: plist, ext: tmLanguage
 {
+    "name": "Neverwinter Script", 
     "fileTypes": [
         "nss"
     ], 
-    "name": "Neverwinter Script", 
+    "scopeName": "source.nss", 
     "patterns": [
         {
             "include": "#comments"
@@ -295,28 +296,5 @@
             ]
         }
     }, 
-    "scopeName": "source.nss", 
-    "settings": [
-        {
-            "shellVariables": [
-                {
-                    "name": "TM_COMMENT_START", 
-                    "value": "// "
-                }, 
-                {
-                    "name": "TM_COMMENT_START_2", 
-                    "value": "/*"
-                }, 
-                {
-                    "name": "TM_COMMENT_END_2", 
-                    "value": "*/"
-                }, 
-                {
-                    "name": "TM_COMMENT_DISABLE_INDENT_2", 
-                    "value": "yes"
-                }
-            ]
-        }
-    ], 
     "uuid": "7344aa21-6782-4ab6-93e7-6f6fb1c76d56"
 }

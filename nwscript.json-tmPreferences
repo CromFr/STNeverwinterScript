@@ -1,0 +1,24 @@
+// [PackageDev] target_format: plist, ext: tmPreferences
+{
+    "name": "Neverwinter Script", 
+    "scope": "source.nss", 
+    "fileTypes": [
+        "nss"
+    ], 
+    "settings": {
+        "shellVariables": [
+            {
+                "name": "TM_COMMENT_START", 
+                "value": "// "
+            }, 
+            {
+                "name": "TM_COMMENT_START_2", 
+                "value": "/*"
+            }, 
+            {
+                "name": "TM_COMMENT_END_2", 
+                "value": "*/"
+            }
+        ]
+    }
+}

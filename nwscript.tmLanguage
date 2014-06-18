@@ -487,38 +487,6 @@
 	</dict>
 	<key>scopeName</key>
 	<string>source.nss</string>
-	<key>settings</key>
-	<array>
-		<dict>
-			<key>shellVariables</key>
-			<array>
-				<dict>
-					<key>name</key>
-					<string>TM_COMMENT_START</string>
-					<key>value</key>
-					<string>// </string>
-				</dict>
-				<dict>
-					<key>name</key>
-					<string>TM_COMMENT_START_2</string>
-					<key>value</key>
-					<string>/*</string>
-				</dict>
-				<dict>
-					<key>name</key>
-					<string>TM_COMMENT_END_2</string>
-					<key>value</key>
-					<string>*/</string>
-				</dict>
-				<dict>
-					<key>name</key>
-					<string>TM_COMMENT_DISABLE_INDENT_2</string>
-					<key>value</key>
-					<string>yes</string>
-				</dict>
-			</array>
-		</dict>
-	</array>
 	<key>uuid</key>
 	<string>7344aa21-6782-4ab6-93e7-6f6fb1c76d56</string>
 </dict>
