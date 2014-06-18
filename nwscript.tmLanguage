@@ -15,6 +15,18 @@
 			<string>#comments</string>
 		</dict>
 		<dict>
+			<key>include</key>
+			<string>#preprocessor-rule-enabled</string>
+		</dict>
+		<dict>
+			<key>include</key>
+			<string>#preprocessor-rule-disabled</string>
+		</dict>
+		<dict>
+			<key>include</key>
+			<string>#preprocessor-rule-other</string>
+		</dict>
+		<dict>
 			<key>match</key>
 			<string>\b(break|case|continue|default|do|else|for|goto|if|return|switch|while)\b</string>
 			<key>name</key>
@@ -235,6 +247,97 @@
 				<dict>
 					<key>include</key>
 					<string>#block_innards</string>
+				</dict>
+			</array>
+		</dict>
+		<key>block_innards</key>
+		<dict>
+			<key>patterns</key>
+			<array>
+				<dict>
+					<key>include</key>
+					<string>#preprocessor-rule-enabled-block</string>
+				</dict>
+				<dict>
+					<key>include</key>
+					<string>#preprocessor-rule-disabled-block</string>
+				</dict>
+				<dict>
+					<key>include</key>
+					<string>#preprocessor-rule-other-block</string>
+				</dict>
+				<dict>
+					<key>include</key>
+					<string>#sizeof</string>
+				</dict>
+				<dict>
+					<key>include</key>
+					<string>#access</string>
+				</dict>
+				<dict>
+					<key>captures</key>
+					<dict>
+						<key>1</key>
+						<dict>
+							<key>name</key>
+							<string>punctuation.whitespace.function-call.leading.nss</string>
+						</dict>
+						<key>2</key>
+						<dict>
+							<key>name</key>
+							<string>support.function.any-method.nss</string>
+						</dict>
+						<key>3</key>
+						<dict>
+							<key>name</key>
+							<string>punctuation.definition.parameters.nss</string>
+						</dict>
+					</dict>
+					<key>match</key>
+					<string>(?x) (?: (?= \s )  (?:(?&lt;=else|new|return) | (?&lt;!\w)) (\s+))?
+(\b
+(?!(while|for|do|if|else|switch|catch|enumerate|return|r?iterate)\s*\()(?:(?!NS)[A-Za-z_][A-Za-z0-9_]*+\b | :: )++
+)
+\s*(\()</string>
+					<key>name</key>
+					<string>meta.function-call.nss</string>
+				</dict>
+				<dict>
+					<key>captures</key>
+					<dict>
+						<key>1</key>
+						<dict>
+							<key>name</key>
+							<string>variable.other.nss</string>
+						</dict>
+						<key>2</key>
+						<dict>
+							<key>name</key>
+							<string>punctuation.definition.parameters.nss</string>
+						</dict>
+					</dict>
+					<key>match</key>
+					<string>(?x)
+(?x)
+(?:
+(?: (?= \s )           (?&lt;!else|new|return) (?&lt;=\w)\s+ 
+)
+)
+(
+(?: [A-Za-z_][A-Za-z0-9_]*+ | :: )++    |
+(?: (?&lt;=operator) (?: [-*&amp;&lt;&gt;=+!]+ | \(\) | \[\] ) )? 
+)
+\s*(\()</string>
+					<key>name</key>
+					<string>meta.initialization.nss</string>
+				</dict>
+				<dict>
+					<key>include</key>
+					<string>#block</string>
+				</dict>
+				<dict>
+					<key>include</key>
+					<string>$base</string>
 				</dict>
 			</array>
 		</dict>

@@ -9,6 +9,15 @@
             "include": "#comments"
         }, 
         {
+            "include": "#preprocessor-rule-enabled"
+        },
+        {
+            "include": "#preprocessor-rule-disabled"
+        },
+        {
+            "include": "#preprocessor-rule-other"
+        },
+        {
             "match": "\\b(break|case|continue|default|do|else|for|goto|if|return|switch|while)\\b", 
             "name": "keyword.control.nss"
         }, 
@@ -135,15 +144,67 @@
             "match": "\\.[a-zA-Z_][a-zA-Z_0-9]*\\b(?!\\s*\\()", 
             "name": "variable.other.dot-access.nss"
         }, 
+                "block_innards": {
+            "patterns": [
+                {
+                    "include": "#preprocessor-rule-enabled-block"
+                }, 
+                {
+                    "include": "#preprocessor-rule-disabled-block"
+                }, 
+                {
+                    "include": "#preprocessor-rule-other-block"
+                }, 
+                {
+                    "include": "#sizeof"
+                }, 
+                {
+                    "include": "#access"
+                }, 
+                {
+                    "name": "meta.function-call.nss", 
+                    "match": "(?x) (?: (?= \\s )  (?:(?<=else|new|return) | (?<!\\w)) (\\s+))?\n(\\b\n(?!(while|for|do|if|else|switch|catch|enumerate|return|r?iterate)\\s*\\()(?:(?!NS)[A-Za-z_][A-Za-z0-9_]*+\\b | :: )++\n)\n\\s*(\\()", 
+                    "captures": {
+                        "3": {
+                            "name": "punctuation.definition.parameters.nss"
+                        }, 
+                        "2": {
+                            "name": "support.function.any-method.nss"
+                        }, 
+                        "1": {
+                            "name": "punctuation.whitespace.function-call.leading.nss"
+                        }
+                    }
+                }, 
+                {
+                    "name": "meta.initialization.nss", 
+                    "match": "(?x)\n(?x)\n(?:\n(?: (?= \\s )           (?<!else|new|return) (?<=\\w)\\s+ \n)\n)\n(\n(?: [A-Za-z_][A-Za-z0-9_]*+ | :: )++    |\n(?: (?<=operator) (?: [-*&<>=+!]+ | \\(\\) | \\[\\] ) )? \n)\n\\s*(\\()", 
+                    "captures": {
+                        "2": {
+                            "name": "punctuation.definition.parameters.nss"
+                        }, 
+                        "1": {
+                            "name": "variable.other.nss"
+                        }
+                    }
+                }, 
+                {
+                    "include": "#block"
+                }, 
+                {
+                    "include": "$base"
+                }
+            ]
+        }, 
         "block": {
-            "begin": "\\{", 
-            "end": "\\}", 
             "name": "meta.block.nss", 
+            "begin": "\\{", 
             "patterns": [
                 {
                     "include": "#block_innards"
                 }
-            ]
+            ], 
+            "end": "\\}"
         }, 
         "comments": {
             "patterns": [
