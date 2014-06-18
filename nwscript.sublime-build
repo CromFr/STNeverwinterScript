@@ -1,9 +1,9 @@
 {
 	"selector": "source.nss",
-	"file_regex": "^\\s*([^\\(]+)\\(([0-9]+)\\): (Error|Warning): .*$",
+	"file_regex": "^\\s*?([^\\(]+)\\(([0-9]+)\\): (Error|Warning): .*?$",
 	"encoding": "cp850",
 	"shell": true,
-	"syntax": "nwscript_buildresults",
+	"syntax": "Packages/STNeverwinterScript/nwscript.build-language",
 
 	"windows":
 	{

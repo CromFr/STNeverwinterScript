@@ -12,18 +12,6 @@
 	<array>
 		<dict>
 			<key>include</key>
-			<string>#preprocessor-rule-enabled</string>
-		</dict>
-		<dict>
-			<key>include</key>
-			<string>#preprocessor-rule-disabled</string>
-		</dict>
-		<dict>
-			<key>include</key>
-			<string>#preprocessor-rule-other</string>
-		</dict>
-		<dict>
-			<key>include</key>
 			<string>#comments</string>
 		</dict>
 		<dict>
@@ -250,97 +238,6 @@
 				</dict>
 			</array>
 		</dict>
-		<key>block_innards</key>
-		<dict>
-			<key>patterns</key>
-			<array>
-				<dict>
-					<key>include</key>
-					<string>#preprocessor-rule-enabled-block</string>
-				</dict>
-				<dict>
-					<key>include</key>
-					<string>#preprocessor-rule-disabled-block</string>
-				</dict>
-				<dict>
-					<key>include</key>
-					<string>#preprocessor-rule-other-block</string>
-				</dict>
-				<dict>
-					<key>include</key>
-					<string>#sizeof</string>
-				</dict>
-				<dict>
-					<key>include</key>
-					<string>#access</string>
-				</dict>
-				<dict>
-					<key>captures</key>
-					<dict>
-						<key>1</key>
-						<dict>
-							<key>name</key>
-							<string>punctuation.whitespace.function-call.leading.nss</string>
-						</dict>
-						<key>2</key>
-						<dict>
-							<key>name</key>
-							<string>support.function.any-method.nss</string>
-						</dict>
-						<key>3</key>
-						<dict>
-							<key>name</key>
-							<string>punctuation.definition.parameters.nss</string>
-						</dict>
-					</dict>
-					<key>match</key>
-					<string>(?x) (?: (?= \s )  (?:(?&lt;=else|new|return) | (?&lt;!\w)) (\s+))?
-(\b
-(?!(while|for|do|if|else|switch|catch|enumerate|return|r?iterate)\s*\()(?:(?!NS)[A-Za-z_][A-Za-z0-9_]*+\b | :: )++
-)
-\s*(\()</string>
-					<key>name</key>
-					<string>meta.function-call.nss</string>
-				</dict>
-				<dict>
-					<key>captures</key>
-					<dict>
-						<key>1</key>
-						<dict>
-							<key>name</key>
-							<string>variable.other.nss</string>
-						</dict>
-						<key>2</key>
-						<dict>
-							<key>name</key>
-							<string>punctuation.definition.parameters.nss</string>
-						</dict>
-					</dict>
-					<key>match</key>
-					<string>(?x)
-(?x)
-(?:
-(?: (?= \s )           (?&lt;!else|new|return) (?&lt;=\w)\s+ 
-)
-)
-(
-(?: [A-Za-z_][A-Za-z0-9_]*+ | :: )++    |
-(?: (?&lt;=operator) (?: [-*&amp;&lt;&gt;=+!]+ | \(\) | \[\] ) )? 
-)
-\s*(\()</string>
-					<key>name</key>
-					<string>meta.initialization.nss</string>
-				</dict>
-				<dict>
-					<key>include</key>
-					<string>#block</string>
-				</dict>
-				<dict>
-					<key>include</key>
-					<string>$base</string>
-				</dict>
-			</array>
-		</dict>
 		<key>comments</key>
 		<dict>
 			<key>patterns</key>
@@ -437,6 +334,50 @@
 				<dict>
 					<key>include</key>
 					<string>$base</string>
+				</dict>
+			</array>
+		</dict>
+		<key>string_escaped_char</key>
+		<dict>
+			<key>patterns</key>
+			<array>
+				<dict>
+					<key>match</key>
+					<string>\\(\\|[abefnprtv'"?]|[0-3]\d{,2}|[4-7]\d?|x[a-fA-F0-9]{,2}|u[a-fA-F0-9]{,4}|U[a-fA-F0-9]{,8})</string>
+					<key>name</key>
+					<string>constant.character.escape.c</string>
+				</dict>
+				<dict>
+					<key>match</key>
+					<string>\\.</string>
+					<key>name</key>
+					<string>invalid.illegal.unknown-escape.c</string>
+				</dict>
+			</array>
+		</dict>
+		<key>string_placeholder</key>
+		<dict>
+			<key>patterns</key>
+			<array>
+				<dict>
+					<key>match</key>
+					<string>(?x)%
+    						(\d+\$)?                             # field (argument #)
+    						[#0\- +']*                           # flags
+    						[,;:_]?                              # separator character (AltiVec)
+    						((-?\d+)|\*(-?\d+\$)?)?              # minimum field width
+    						(\.((-?\d+)|\*(-?\d+\$)?)?)?         # precision
+    						(hh|h|ll|l|j|t|z|q|L|vh|vl|v|hv|hl)? # length modifier
+    						[diouxXDOUeEfFgGaACcSspn%]           # conversion type
+    					</string>
+					<key>name</key>
+					<string>constant.other.placeholder.c</string>
+				</dict>
+				<dict>
+					<key>match</key>
+					<string>%</string>
+					<key>name</key>
+					<string>invalid.illegal.placeholder.c</string>
 				</dict>
 			</array>
 		</dict>

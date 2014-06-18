@@ -1,0 +1,39 @@
+// [PackageDev] target_format: plist, ext: build-language
+{
+	"name": "Neverwinter Script Build Results",
+	"scopeName": "source.nwnbuild_results",
+	"fileTypes": [""],
+	"uuid": "d6066335-1366-4ae2-b5ec-1784a7684be1",
+
+	"patterns": [
+	{
+		"match": "^\\s*+([^\\(]+)\\(([0-9]+)\\): (Error): .*?$", 
+		"captures": {
+			"1": {
+				"name": "string"
+			},
+			"2": {
+				"name": "constant.numeric"
+			},
+			"3": {
+				"name": "invalid"
+			}
+		}
+	},
+	{
+		"match": "^\\s*+([^\\(]+)\\(([0-9]+)\\): (Warning): .*?$", 
+		"captures": {
+			"1": {
+				"name": "string"
+			},
+			"2": {
+				"name": "constant.numeric"
+			},
+			"3": {
+				"name": "message.error"
+			}
+		}
+	}
+	]
+
+}
