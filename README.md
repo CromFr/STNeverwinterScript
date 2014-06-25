@@ -2,6 +2,15 @@
 
 ## Compiler installation :
 
+
+### Using prepared binaries
+- Download and extract [NWNScriptCompiler package](https://github.com/CromFr/STNeverwinterScript/releases/download/1.0/NWNScriptCompiler.zip) in:
+	- **Windows**: C:\Program Files (x86)\
+	- **Linux**: /opt/
+
+
+### Using custom binaries
+
 - Download the AdvancedScriptCompiler (http://nwvault.ign.com/View.php?view=nwn2plugins.Detail&id=99) and extract the standalone compiler at
 	- **Windows**: C:\Program Files (x86)\NWNScriptCompiler\
 	- **Linux**: /opt/NWNScriptCompiler/
