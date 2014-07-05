@@ -4,7 +4,7 @@
 
 
 ### Using prepared binaries
-- Download and extract [NWNScriptCompiler package](https://github.com/CromFr/STNeverwinterScript/releases/download/1.0/NWNScriptCompiler.zip) in:
+- Download and extract the latest [Packed NWNScriptCompiler](https://github.com/CromFr/STNeverwinterScript/releases) in:
 	- **Windows**: C:\Program Files (x86)\
 	- **Linux**: /opt/
 
