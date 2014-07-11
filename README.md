@@ -11,7 +11,7 @@
 
 ### Using custom binaries
 
-- Download the AdvancedScriptCompiler (http://nwvault.ign.com/View.php?view=nwn2plugins.Detail&id=99) and extract the standalone compiler at
+- Download the AdvancedScriptCompiler (http://neverwintervault.org/project/nwn2/other/tool/advanced-script-compiler-nwn2) and extract the standalone compiler at
 	- **Windows**: C:\Program Files (x86)\NWNScriptCompiler\
 	- **Linux**: /opt/NWNScriptCompiler/
 	
