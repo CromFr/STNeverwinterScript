@@ -56,5 +56,13 @@
 		"trigger": ".StartingConditional", 
 		"contents": "int StartingConditional(${1:/*Args*/})\n{\n\t${0:/*Code*/}\n\treturn FALSE;\n}"
     	},
+        {
+        "trigger": ".its", 
+        "contents": "IntToString(${1:/*int*/})"
+        },
+        {
+        "trigger": ".fts", 
+        "contents": "FloatToString(${1:/*float*/})"
+        }
     ]
 }
