@@ -7,7 +7,7 @@
 
 	"windows":
 	{
-		"cmd": ["C:\\Program Files (x86)\\NWNScriptCompiler\\NWNScriptCompiler.exe","-i","C:\\Program Files (x86)\\NWNScriptCompiler\\Scripts","-v169","-q","-e","-o","-r","${file_path}","${file}"]
+		"cmd": ["C:\\Program Files (x86)\\NWNScriptCompiler\\NWNScriptCompiler.exe","-i","C:\\Program Files (x86)\\NWNScriptCompiler\\Scripts","-v169","-a","-e","-o","-r","${file_path}","${file}"]
 	},
 	"linux":
 	{
