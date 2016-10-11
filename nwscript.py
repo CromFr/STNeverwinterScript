@@ -171,5 +171,5 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 		re.DOTALL)
 
 	rgx_include = re.compile(
-		r'#include\s+"([\w-]+)"',
-		re.DOTALL)
+		r'^(?!\s*//)\s*#include\s+"([\w-]+)"',
+		re.DOTALL + re.MULTILINE)
