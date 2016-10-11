@@ -47,7 +47,14 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
 		self._cpl = []
 		self._explored_resref = {}
-		self._request_completions_recurr(folder, resref)
+
+		deps = self.get_dependencies(file_data)
+		cpl = self.get_completions(resref, file_data)
+		completions[resref] = [file, deps, cpl]
+
+		self._cpl += cpl
+		for dep in deps:
+			self._request_completions_recurr(folder, dep)
 		return self._cpl
 
 	def _request_completions_recurr(self, folder, file_resref):
