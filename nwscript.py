@@ -58,7 +58,12 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 		if not file_resref in completions:
 			file_path = self.get_file_path_by_resref(folder, file_resref)
 			if file_path != None:
-				file_data = open(file_path).read()
+				file_data = ""
+				try: file_data = open(file_path).read()
+				except Exception as e:
+					try: file_data = open(file_path, encoding="utf-8").read()
+					except Exception as e: pass
+
 				file_deps = self.get_dependencies(file_data)
 				file_cpl = self.get_completions(file_resref, file_data)
 				completions[file_resref] = [file_path, file_deps, file_cpl]
