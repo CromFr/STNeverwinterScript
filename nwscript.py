@@ -36,7 +36,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 			position = locations[0]
 
 		response = self.request_completions(view.file_name(), view.substr(sublime.Region(0, view.size())), position)
-		return (response, 0)
+		return response
 		# sublime.INHIBIT_WORD_COMPLETIONS | sublime.INHIBIT_EXPLICIT_COMPLETIONS
 
 	_explored_resref = {}
@@ -101,7 +101,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
 		custom = ""
 		if file_resref != "nwscript":
-			custom = "*"
+			custom = "🟆"
 
 		matches = None
 		if file_resref == "nwscript":
@@ -129,14 +129,14 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
 				# print(args)
 
-				cpl += [[match[1]+"()"+custom+"\t"+match[0], match[1]+"("+(", ".join(args))+")"]]
+				cpl += [[match[1]+"\t"+custom+match[0]+"()", match[1]+"("+(", ".join(args))+")"]]
 
 		if file_resref == "nwscript":
 			for match in self.rgx_global_nwscript.findall(file_data):
 				cpl += [[match[1]+"\t"+match[0]+"="+match[2], match[1]]]
 		else:
 			for match in self.rgx_global_const.findall(file_data):
-				cpl += [[match[1]+custom+"\t"+match[0]+"="+match[2], match[1]]]
+				cpl += [[match[1]+"\t"+custom+match[0]+"="+match[2], match[1]]]
 
 		return cpl
 
