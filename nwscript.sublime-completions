@@ -1,0 +1,62 @@
+{
+	"scope": "source.nss",
+	"completions":
+	[
+		{
+		"trigger": "while.firstnextvalid",
+		"contents": "${1:/*Variable Type*/} ${2:/*Variable Name*/}=GetFirst${3:/*Getter*/};\nwhile(GetIs${1/^(\\w)/\\u$1/g}Valid(${2:/*Variable Name*/}))\n{\n\t${0:/* code */}\n\t${2:/*variable*/}=GetNext${3:/*Getter*/};\n}"
+		},
+		{
+		"trigger": "while.indexedvalid",
+		"contents": "int iIndex=${4:/*Start Index*/};\n${1:/*Variable Type*/} ${2:/*Variable Name*/}=Get${3:/*Getter*/};\nwhile(GetIs${1/^(\\w)/\\u$1/g}Valid(${2:/*Variable Name*/}))\n{\n\t${0:/*Code*/}\n\tiIndex++;\n\t${2:/*variable*/}=Get${3:/*Getter*/};\n}"
+		},
+		{
+		"trigger": "while",
+		"contents": "while(${1:/*Condition*/})\n{\n\t${0:/*Code*/}\n}"
+		},
+		{
+		"trigger": "for.count",
+		"contents": "int ${1:/*Variable Name*/};\nfor(${1:/*Variable Name*/}=0 ; ${1:/*Variable Name*/}<${2:/*Count*/} ; ${1:/*Variable Name*/}++)\n{\n\t${0:/*Code*/}\n}"
+		},
+		{
+		"trigger": "switch",
+		"contents": "switch(${1:/*Variable Name*/})\n{\n\tcase 0:\n\t\t${0:/*Code*/}\n\t\tbreak;\n\n\tdefault:\n\t\tbreak;\n}"
+		},
+		{
+		"trigger": "if",
+		"contents": "if(${1:/*Condition*/})\n{\n\t${0:/*Code*/}\n}"
+		},
+		{
+		"trigger": "else",
+		"contents": "else\n{\n\t${0:/*Code*/}\n}"
+		},
+		{
+		"trigger": "if.inline",
+		"contents": "if(${1:/*Condition*/})\n\t${0:/*Code*/}"
+		},
+		{
+		"trigger": "if.else",
+		"contents": "if(${1:/*Condition*/})\n{\n\t${0:/*Code*/}\n}\nelse\n{\n\t${0:/*Code*/}\n}"
+		},
+		{
+		"trigger": "do",
+		"contents": "do\n{\n\t${0:/*Code*/}\n}while(${1:/*Condition*/});"
+		},
+		{
+		"trigger": "main\tMain function",
+		"contents": "void main(${1:/*Args*/})\n{\n\t${0:/*Code*/}\n}"
+		},
+		{
+		"trigger": "StartingConditional\tMain function",
+		"contents": "int StartingConditional(${1:/*Args*/})\n{\n\t${0:/*Code*/}\n\treturn FALSE;\n}"
+		},
+		{
+		"trigger": "its\tIntToString()",
+		"contents": "IntToString(${1:/*int*/})"
+		},
+		{
+		"trigger": "fts\tFloatToString()",
+		"contents": "FloatToString(${1:/*float*/})"
+		}
+	]
+}
