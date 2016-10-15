@@ -2,13 +2,15 @@
 	"scope": "source.nss",
 	"completions":
 	[
+		"OBJECT_SELF",
+		"OBJECT_INVALID",
 		{
 		"trigger": "while.firstnextvalid",
-		"contents": "${1:/*Variable Type*/} ${2:/*Variable Name*/}=GetFirst${3:/*Getter*/};\nwhile(GetIs${1/^(\\w)/\\u$1/g}Valid(${2:/*Variable Name*/}))\n{\n\t${0:/* code */}\n\t${2:/*variable*/}=GetNext${3:/*Getter*/};\n}"
+		"contents": "${1:/*Variable Type*/} ${2:/*Variable Name*/} = GetFirst${3:/*Getter*/};\nwhile(GetIs${1/^(\\w)/\\u$1/g}Valid(${2:/*Variable Name*/}))\n{\n\t${0:/* code */}\n\t${2:/*variable*/} = GetNext${3:/*Getter*/};\n}"
 		},
 		{
 		"trigger": "while.indexedvalid",
-		"contents": "int iIndex=${4:/*Start Index*/};\n${1:/*Variable Type*/} ${2:/*Variable Name*/}=Get${3:/*Getter*/};\nwhile(GetIs${1/^(\\w)/\\u$1/g}Valid(${2:/*Variable Name*/}))\n{\n\t${0:/*Code*/}\n\tiIndex++;\n\t${2:/*variable*/}=Get${3:/*Getter*/};\n}"
+		"contents": "int iIndex = ${4:/*Start Index*/};\n${1:/*Variable Type*/} ${2:/*Variable Name*/} = Get${3:/*Getter*/};\nwhile(GetIs${1/^(\\w)/\\u$1/g}Valid(${2:/*Variable Name*/}))\n{\n\t${0:/*Code*/}\n\tiIndex++;\n\t${2:/*variable*/} = Get${3:/*Getter*/};\n}"
 		},
 		{
 		"trigger": "while",
@@ -16,7 +18,7 @@
 		},
 		{
 		"trigger": "for.count",
-		"contents": "int ${1:/*Variable Name*/};\nfor(${1:/*Variable Name*/}=0 ; ${1:/*Variable Name*/}<${2:/*Count*/} ; ${1:/*Variable Name*/}++)\n{\n\t${0:/*Code*/}\n}"
+		"contents": "int ${1:/*Variable Name*/};\nfor(${1:/*Variable Name*/} = 0 ; ${1:/*Variable Name*/} < ${2:/*Count*/} ; ${1:/*Variable Name*/}++)\n{\n\t${0:/*Code*/}\n}"
 		},
 		{
 		"trigger": "switch",
