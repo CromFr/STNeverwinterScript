@@ -4,6 +4,8 @@
 	[
 		"OBJECT_SELF",
 		"OBJECT_INVALID",
+		"TRUE",
+		"FALSE",
 		{
 		"trigger": "while.firstnextvalid",
 		"contents": "${1:/*Variable Type*/} ${2:/*Variable Name*/} = GetFirst${3:/*Getter*/};\nwhile(GetIs${1/^(\\w)/\\u$1/g}Valid(${2:/*Variable Name*/}))\n{\n\t${0:/* code */}\n\t${2:/*variable*/} = GetNext${3:/*Getter*/};\n}"
