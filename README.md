@@ -27,15 +27,16 @@
 You need wine in order to use the NWNScriptCompiler.exe
 ```bash
 apt-get install wine #Ubuntu/Debian users
-yup install wine #Fedora/Redhat users
+yum install wine #Fedora/Redhat users
 pacman -S wine #Arch-Linux awesome users
 ```
 
 ## Sublime package installation :
 
 ### With PackageControl :
-- Add repository https://github.com/CromFr/STNeverwinterScript.git
 - Install package STNeverwinterScript
+- Check that `path` setting in _Preferences/Package Settings/STNeverwinterScript/Settings_ leads to the NWNScriptCompiler script folder. If not, override it.
 
 ### Manual install :
 - Clone/extract https://github.com/CromFr/STNeverwinterScript into the sublime package directory (%appdata%\Roaming\Sublime Text 3\Packages on windows)
+- Check that `path` setting in _Preferences/Package Settings/STNeverwinterScript/Settings_ leads to the NWNScriptCompiler script folder. If not, override it.
