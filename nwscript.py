@@ -62,7 +62,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 			return []
 		self._explored_resref[file_resref] = 1
 
-		if not file_resref in completions:
+		if not file_resref in completions or os.path.getmtime(completions[file_resref][0]) > completions[file_resref][3]:
 			file_path = self.get_file_path_by_resref(folder, file_resref)
 			if file_path != None:
 				file_data = ""
@@ -71,9 +71,11 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 					try: file_data = open(file_path, encoding="utf-8").read()
 					except Exception as e: pass
 
+				parse_date = os.path.getmtime(file_path);
 				file_deps = self.get_dependencies(file_data)
 				file_cpl = self.get_completions(file_resref, file_data)
-				completions[file_resref] = [file_path, file_deps, file_cpl]
+				completions[file_resref] = [file_path, file_deps, file_cpl, parse_date]
+
 
 		self._cpl += completions[file_resref][2]
 
