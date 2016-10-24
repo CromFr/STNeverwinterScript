@@ -161,16 +161,16 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 		re.DOTALL)
 
 	rgx_global_const = re.compile(
-		r'(?:const\s+)'
+		r'^\s*const\s+'
 		+nwn_types+r'\s+'
 		r'(\w+)'
-		r'\s*=\s*([\w."]+)\s*;',
-		re.DOTALL)
+		r'\s*=\s*(.+?)\s*;',
+		re.DOTALL + re.MULTILINE)
 	rgx_global_nwscript = re.compile(
-		nwn_types+r'\s+'
+		r'^\s*'+nwn_types+r'\s+'
 		r'(\w+)'
-		r'\s*=\s*([\w."]+)\s*;',
-		re.DOTALL)
+		r'\s*=\s*(.+?)\s*;',
+		re.DOTALL + re.MULTILINE)
 
 	rgx_include = re.compile(
 		r'^(?!\s*//)\s*#include\s+"([\w-]+)"',
