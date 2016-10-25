@@ -50,7 +50,8 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
 		deps = self.get_dependencies(file_data)
 		cpl = self.get_completions(resref, file_data)
-		completions[resref] = [file, deps, cpl]
+		date = os.path.getmtime(file)
+		completions[resref] = [file, deps, cpl, date]
 
 		self._cpl += cpl
 		for dep in deps:
@@ -62,7 +63,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 			return []
 		self._explored_resref[file_resref] = 1
 
-		if not file_resref in completions or os.path.getmtime(completions[file_resref][0]) > completions[file_resref][3]:
+		if (not file_resref in completions) or (os.path.getmtime(completions[file_resref][0]) > completions[file_resref][3]):
 			file_path = self.get_file_path_by_resref(folder, file_resref)
 			if file_path != None:
 				file_data = ""
