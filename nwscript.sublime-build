@@ -11,6 +11,9 @@
 	},
 	"linux":
 	{
+		"env": {
+			"WINEDEBUG": "-all"
+		},
 		"cmd": ["wine /opt/NWNScriptCompiler/NWNScriptCompiler.exe -i /opt/NWNScriptCompiler/Scripts -v169 -q -g -e -o -r \"${file_path}\" \"${file}\""]
 	},
 
@@ -23,6 +26,9 @@
 			},
 			"linux":
 			{
+				"env": {
+					"WINEDEBUG": "-all"
+				},
 				"cmd": ["wine /opt/NWNScriptCompiler/NWNScriptCompiler.exe -i /opt/NWNScriptCompiler/Scripts -v169 -q -g -e -o -r \"${file_path}\" -y -b \"${file_path}\" \\*.nss"]
 			}
 		}
