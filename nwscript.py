@@ -92,6 +92,11 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 			if os.path.isfile(file):
 				return file
 
+			if os.name == "posix":
+				file = os.path.join(path, resref+".NSS")
+				if os.path.isfile(file):
+					return file
+
 		print("nwscript-completion: could not find '"+resref+"' in ",path_list)
 		return None
 
