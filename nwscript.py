@@ -109,7 +109,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
 		custom = ""
 		if file_resref != "nwscript":
-			custom = "🟆"
+			custom = "⋄"
 
 		matches = None
 		if file_resref == "nwscript":
