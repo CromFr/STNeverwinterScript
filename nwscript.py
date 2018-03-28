@@ -161,7 +161,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 	rgx_fun_arg = re.compile(
 		nwn_types+r'\s+'
 		r'(\w+)'
-		r'(?:\s*=\s*([\w."]+))?',
+		r'(?:\s*=\s*([-\w\."]+))?',
 		re.DOTALL)
 
 	rgx_global_const = re.compile(
