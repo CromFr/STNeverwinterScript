@@ -141,6 +141,9 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 			for match in self.rgx_global_const.findall(file_data):
 				cpl += [[match[1]+"\t"+custom+match[0]+"="+match[2], match[1]]]
 
+		for match in self.rgx_fun_define.findall(file_data):
+			cpl += [[match[0]+"\t"+match[1], match[0]]]
+
 		return cpl
 
 	nwn_types = r'(void|string|int|float|object|vector|location|effect|event|talent|itemproperty|action|struct\s+\w+)'
@@ -171,6 +174,10 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 		r'^\s*'+nwn_types+r'\s+'
 		r'(\w+)'
 		r'\s*=\s*(.+?)\s*;',
+		re.DOTALL + re.MULTILINE)
+
+	rgx_fun_define = re.compile(
+		r'^\s*#\s*define\s+(\w+)\s+(.+?)\s*$',
 		re.DOTALL + re.MULTILINE)
 
 	rgx_include = re.compile(
