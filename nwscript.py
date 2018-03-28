@@ -127,7 +127,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 							default = ""
 							if arg_match[2] != None:
 								default += "="+arg_match[2]
-							args += ["${"+str(i+1)+":/*"+arg_match[0]+" "+arg_match[1]+default+"*/}"]
+							args += ["${"+str(i+1)+":"+arg_match[0]+" "+arg_match[1]+default+"}"]
 						i = i+1
 
 				# print(args)
