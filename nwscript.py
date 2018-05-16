@@ -132,7 +132,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 							default = ""
 							if arg_match[2] != None:
 								default += "="+arg_match[2]
-							args += ["${"+str(i+1)+":/*"+arg_match[0]+" "+arg_match[1]+default+"*/}"]
+							args += ["${"+str(i+1)+":"+arg_match[0]+" "+arg_match[1]+default+"}"]
 						i = i+1
 
 				# print(args)
@@ -145,6 +145,9 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 		else:
 			for match in self.rgx_global_const.findall(file_data):
 				cpl += [[match[1]+"\t"+custom+match[0]+"="+match[2], match[1]]]
+
+		for match in self.rgx_fun_define.findall(file_data):
+			cpl += [[match[0]+"\t"+match[1], match[0]]]
 
 		return cpl
 
@@ -163,7 +166,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 	rgx_fun_arg = re.compile(
 		nwn_types+r'\s+'
 		r'(\w+)'
-		r'(?:\s*=\s*([\w."]+))?',
+		r'(?:\s*=\s*([-\w\."]+))?',
 		re.DOTALL)
 
 	rgx_global_const = re.compile(
@@ -176,6 +179,10 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 		r'^\s*'+nwn_types+r'\s+'
 		r'(\w+)'
 		r'\s*=\s*(.+?)\s*;',
+		re.DOTALL + re.MULTILINE)
+
+	rgx_fun_define = re.compile(
+		r'^\s*#\s*define\s+(\w+)\s+(.+?)\s*$',
 		re.DOTALL + re.MULTILINE)
 
 	rgx_include = re.compile(
