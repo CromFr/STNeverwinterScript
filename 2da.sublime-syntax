@@ -1,0 +1,65 @@
+%YAML 1.2
+---
+# See http://www.sublimetext.com/docs/3/syntax.html
+file_extensions:
+  - 2da
+scope: source.2da
+contexts:
+  main:
+    - match: '\r?\n'
+      set: empty_line
+
+    - match: '^2DA V2\.0$'
+      scope: keyword.version.2da
+
+    - match: '.*'
+      scope: invalid.illegal
+
+  empty_line:
+    - match: '\r?\n'
+      set: table_headers
+
+    - match: .+
+      scope: invalid.illegal
+
+  table_headers:
+    - match: '\r?\n'
+      set: content
+
+    - match: '\s"'
+      scope: punctuation.definition.string.begin.2da
+      push: double_quoted_column
+
+    - match: '\w+'
+      scope: keyword.declaration.column.2da
+
+  double_quoted_column:
+    - meta_scope: keyword.declaration.column.2da
+    - match: '"'
+      scope: punctuation.definition.string.end.2da
+      pop: true
+
+  content:
+    - match: '^(?!\s*\d).*'
+      scope: invalid.illegal
+
+    - match: '^\s*(\d+)\s+([\w\*]+)'
+      captures:
+        1: keyword.line_id.2da meta.toc-list
+        2: keyword.line_label.2da meta.toc-list
+
+    - match: '\*\*\*\*'
+      scope: comment.empty_field.2da
+
+    - match: '\s"'
+      scope: punctuation.definition.string.begin.2da
+      push: double_quoted_field
+
+    - match: '\w+'
+      scope: string.unquoted.2da
+
+  double_quoted_field:
+    - meta_scope: string.quoted.2da
+    - match: '"'
+      scope: punctuation.definition.string.end.2da
+      pop: true
