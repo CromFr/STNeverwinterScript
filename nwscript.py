@@ -86,7 +86,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
 
 	def get_file_path_by_resref(self, folder, resref):
-		path_list = read_all_settings("path") + [folder]
+		path_list = read_all_settings("include_path") + [folder]
 		for path in path_list:
 			file = os.path.join(path, resref+".nss")
 			if os.path.isfile(file):

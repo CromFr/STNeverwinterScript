@@ -31,6 +31,15 @@
 				},
 				"cmd": ["wine /opt/NWNScriptCompiler/NWNScriptCompiler.exe -i /opt/NWNScriptCompiler/Scripts -v169 -q -g -e -o -r \"${file_path}\" -y -b \"${file_path}\" \\*.nss"]
 			}
+		},
+		{
+			"name": "Smart build (beta)",
+			"target": "nwscript_builder"
+		},
+		{
+			"name": "Rebuild everything with multithreading (beta)",
+			"target": "nwscript_builder",
+			"build_all": true
 		}
 	]
 

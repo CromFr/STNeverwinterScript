@@ -1,4 +1,23 @@
 {
-	//Path to the folders containing default script files. Module files will override these.
-	"path": ["C:\\Program Files (x86)\\NWNScriptCompiler\\Scripts\\"]
+	// Command to invoke the NWNScriptCompiler.exe executable. See example below for Linux users.
+	"compiler_cmd": ["C:\\Program Files (x86)\\NWNScriptCompiler\\NWNScriptCompiler.exe"],
+
+	// Linux example:
+	// "compiler_cmd": [
+	// 	"env",
+	// 	"WINEDEBUG=-all",
+	// 	"wine",
+	// 	"/opt/NWNScriptCompiler/NWNScriptCompiler.exe"
+	// ],
+
+
+	// Path to the folders containing default script files. Module files will override these.
+	"include_path": [
+		"C:\\Program Files (x86)\\NWNScriptCompiler\\Scripts\\",
+	],
+
+	// Linux example:
+	// "include_path": [
+	// 	"/opt/NWNScriptCompiler/Scripts",
+	// ],
 }
