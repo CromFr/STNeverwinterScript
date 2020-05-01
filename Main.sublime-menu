@@ -17,6 +17,7 @@
                 "command": "edit_settings", "args":
                 {
                     "base_file": "${packages}/STNeverwinterScript/nwscript.sublime-settings",
+                    "user_file": "${packages}/User/nwscript.sublime-settings",
                     "default": "{\n\t\n}"
                 }
               }
