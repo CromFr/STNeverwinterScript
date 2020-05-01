@@ -9,7 +9,7 @@ contexts:
     - match: '\r?\n'
       set: empty_line
 
-    - match: '^2DA V2\.0$'
+    - match: '^2DA\sV2\.0[\s]*?$'
       scope: keyword.version.2da
 
     - match: '.*'
@@ -19,7 +19,7 @@ contexts:
     - match: '\r?\n'
       set: table_headers
 
-    - match: .+
+    - match: '[^\s\n]+'
       scope: invalid.illegal
 
   table_headers:
