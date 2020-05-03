@@ -43,10 +43,12 @@ contexts:
     - match: '^(?!\s*\d).*'
       scope: invalid.illegal
 
-    - match: '^\s*(\d+)\s+([\w\*]+)'
+    - match: '^\s*(\d+)\s+(?:([\w\*]+)|"(.*?)")'
+      scope: keyword
       captures:
         1: keyword.line_id.2da meta.toc-list
         2: keyword.line_label.2da meta.toc-list
+        3: keyword.line_label.2da meta.toc-list
 
     - match: '\*\*\*\*'
       scope: comment.empty_field.2da
