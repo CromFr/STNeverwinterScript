@@ -25,6 +25,10 @@ class nwscript_builder(sublime_plugin.WindowCommand):
     panel = None
     panel_lock = threading.Lock()
 
+    started_processes = []
+    build_lock = threading.Lock()
+    stop_build = False
+
     rgx_include = re.compile(r'^\s*#\s*include\s+"(.+?)"')
 
     # directory => DependencyInfo
@@ -36,7 +40,6 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
 
     def run(self, build_all=False, **kargs):
-
         vars = self.window.extract_variables()
         if "file_path" not in vars:
             return
@@ -70,77 +73,89 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
 
     def update_and_build(self, working_dir, build_all):
-        first_time_build = self.cache[working_dir].last_build == 0.0
+        # Stop currently running processes
+        if self.build_lock.locked():
+            self.write_build_results("STOPPING CURRENT BUILD\n")
+            self.stop_build = True
+            for p in self.started_processes:
+                p.terminate()
+            self.build_lock.acquire()
+            self.build_lock.release()
+            self.stop_build = False
+            self.write_build_results("STOPPED\n")
 
-        # Update time of last build
-        since = self.cache[working_dir].last_build
-        self.cache[working_dir].last_build = time.time()
+        with self.build_lock:
+            first_time_build = self.cache[working_dir].last_build == 0.0
 
-        script_list = set()
-        if build_all is False:
-            # Parse nss files to update dependent_scripts and script_dependencies
-            modified_list = self.update_include_graph(working_dir, since)
-
-            # Go through the include graph to find files that needs to be re-built
-            include_list = set()
-            def add_script(script):
-                if script not in self.cache[working_dir].dependent_scripts:
-                    # Script is not included elsewhere, probably has a main() function
-                    script_list.add(script)
-                else:
-                    # Script is included by several other scripts
-                    if script not in include_list:
-                        include_list.add(script)
-                        for s in self.cache[working_dir].dependent_scripts[script]:
-                            add_script(s)
-
-            for s in modified_list:
-                add_script(s)
-
-        else:
-            # Add every script file in the working directory
+            # Update time of last build
+            since = self.cache[working_dir].last_build
             self.cache[working_dir].last_build = time.time()
-            for filepath in glob.iglob(os.path.join(working_dir, "*.nss")):
-                script_name = os.path.splitext(os.path.basename(filepath))[0]
-                script_list.add(script_name)
+
+            script_list = set()
+            if build_all is False:
+                # Parse nss files to update dependent_scripts and script_dependencies
+                modified_list = self.update_include_graph(working_dir, since)
+
+                # Go through the include graph to find files that needs to be re-built
+                include_list = set()
+                def add_script(script):
+                    if script not in self.cache[working_dir].dependent_scripts:
+                        # Script is not included elsewhere, probably has a main() function
+                        script_list.add(script)
+                    else:
+                        # Script is included by several other scripts
+                        if script not in include_list:
+                            include_list.add(script)
+                            for s in self.cache[working_dir].dependent_scripts[script]:
+                                add_script(s)
+
+                for s in modified_list:
+                    add_script(s)
+
+            else:
+                # Add every script file in the working directory
+                self.cache[working_dir].last_build = time.time()
+                for filepath in glob.iglob(os.path.join(working_dir, "*.nss")):
+                    script_name = os.path.splitext(os.path.basename(filepath))[0]
+                    script_list.add(script_name)
 
 
-        # Do nothing if there's nothing to do :)
-        if len(script_list) == 0:
-            self.write_build_results("No scripts to build")
-            return
+            # Do nothing if there's nothing to do :)
+            if len(script_list) == 0:
+                self.write_build_results("No scripts to build")
+                return
 
-        # Replace script names with paths
-        script_list = [os.path.join(working_dir, name + ".nss") for name in script_list]
+            # Replace script names with paths
+            script_list = [os.path.join(working_dir, name + ".nss") for name in script_list]
 
-        if first_time_build or build_all:
-            self.write_build_results("Full build: %d scripts will be re-compiled\n" % len(script_list))
-        else:
-            self.write_build_results("%d script(s) to compile: %s\n" % (
-                len(script_list),
-                ", ".join([os.path.splitext(os.path.basename(f))[0] for f in script_list]),
-            ))
-        self.write_build_results("-" * 80 + "\n")
+            if first_time_build or build_all:
+                self.write_build_results("Full build: %d scripts will be re-compiled\n" % len(script_list))
+            else:
+                self.write_build_results("%d script(s) to compile: %s\n" % (
+                    len(script_list),
+                    ", ".join([os.path.splitext(os.path.basename(f))[0] for f in script_list]),
+                ))
+            self.write_build_results("-" * 80 + "\n")
 
 
-        # Build the scripts
-        build_start = time.time()
+            # Build the scripts
+            build_start = time.time()
 
-        status = self.compile_script_list(working_dir, script_list)
+            status = self.compile_script_list(working_dir, script_list)
 
-        build_end = time.time()
-        build_duration = build_end - build_start
+            build_end = time.time()
+            build_duration = build_end - build_start
 
-        # Statz
-        time.sleep(0.5)
-        self.write_build_results("-" * 80 + "\n")
-        if status == 0:
-            self.write_build_results("Finished smart build in %.1f seconds with no errors\n" % build_duration)
-        else:
-            self.write_build_results("Finished smart build in %.1f seconds with some errors\n" % build_duration)
+            # Statz
+            time.sleep(0.5)
+            self.write_build_results("-" * 80 + "\n")
+            if status == 0:
+                self.write_build_results("Finished smart build in %.1f seconds with no errors\n" % build_duration)
+            else:
+                self.write_build_results("Finished smart build in %.1f seconds with some errors\n" % build_duration)
 
-    def compile_script_list(self, working_dir, script_list):
-
+    def compile_script_list(self, working_dir, script_list: list):
+        # Get compiler config
         settings = sublime.load_settings('nwscript.sublime-settings')
         compiler_cmd = settings.get("compiler_cmd")
         include_path = settings.get("include_path")
@@ -148,17 +163,19 @@ class nwscript_builder(sublime_plugin.WindowCommand):
         for inc in include_path:
             include_args.extend(["-i", inc])
 
-        started_processes = []
+        self.started_processes = []
         def count_running_processes():
             ret = 0
-            for p in started_processes:
+            for p in self.started_processes:
                 if p.poll() is None:
                     ret += 1
             return ret
 
         try:
-            while len(script_list) > 0:
-                processed_files_cnt = min(30, len(script_list))
+            while len(script_list) > 0 and not self.stop_build:
+                # Take out scripts to build in this iteration
+                scripts_to_process = script_list[0: min(30, len(script_list))]
+                script_list = script_list[len(scripts_to_process):]
 
                 # Build command-line
                 args = compiler_cmd + include_args + [
@@ -166,10 +183,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
                     "-r", working_dir,
                     "-b", working_dir,
                 ]
-                args.extend(script_list[0: processed_files_cnt])
-
-                # Remove added files
-                script_list = script_list[processed_files_cnt: -1]
+                args.extend(scripts_to_process)
 
                 # Windows only: prevent cmd from showing on screen
                 si = None
@@ -186,7 +200,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
                     universal_newlines=False,
                     startupinfo=si,
                 )
-                started_processes.append(proc)
+                self.started_processes.append(proc)
 
                 # Redirect stdout & stderr to build results
                 threading.Thread(
@@ -203,14 +217,16 @@ class nwscript_builder(sublime_plugin.WindowCommand):
                     time.sleep(1)
 
         except Exception as e:
-            self.write_build_results("nwscript-smartbuild error: %e" % e)
+            self.write_build_results("nwscript-smartbuild error: %s\n" % e)
 
         # Wait for subprocesses to end
         status = 0
-        for proc in started_processes:
+        for proc in self.started_processes:
             ret = proc.wait()
             if ret != 0:
                 status = ret
+
+        self.started_processes = []
 
         # Return 0 if no error, otherwise != 0
         return status
