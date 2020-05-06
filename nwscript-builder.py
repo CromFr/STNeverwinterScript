@@ -16,6 +16,9 @@ class Script:
     has_main = True
     dependencies = None
 
+    # Cached mtime values to prevent excessive IO requests
+    nss_mtime = None  # Set at the beginning of each build
+    ncs_mtime = None  # Set on first run and after each compilation
 
 class DirCache:
     # script name => Script object
@@ -37,11 +40,10 @@ class nwscript_builder(sublime_plugin.WindowCommand):
     build_lock = threading.Lock()
     stop_build = False
 
-    rgx_include = re.compile(r'^\s*#\s*include\s+"(.+?)"')
-
     # directory => DirCache
     cache = {}
 
+    # Build results default settings
     encoding = "cp850"
     syntax = "Packages/STNeverwinterScript/nwscript.build-language"
     file_regex = "^\\s*?([^\\(]+)\\(([0-9]+)\\): (Error|Warning): .*?$"
@@ -70,9 +72,6 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
             self.window.run_command("show_panel", {"panel": "output.exec"})
 
-        # Fix scrolling issue
-        self.write_build_results("\n")
-        self.panel.set_viewport_position((0, 0))
 
         # Work in a separate thread to so main thread doesn't freeze
         threading.Thread(
@@ -99,6 +98,10 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
             # Save current time (dircache.last_build will be updated once build is finished)
             curr_build = time.time()
+
+            self.write_build_results("Looking for modifications...\n")
+            # Fix scrolling issue
+            self.panel.set_viewport_position((0, 0))
 
             # Build / update script list
             self.update_script_list(working_dir)
@@ -134,6 +137,12 @@ class nwscript_builder(sublime_plugin.WindowCommand):
             if not self.stop_build:
                 dircache.last_build = curr_build
 
+                # Update NCS mtimes
+                for sn in scripts_to_build:
+                    if dircache.scripts[sn].ncs is not None:
+                        ncs_path = os.path.join(working_dir, dircache.scripts[sn].ncs)
+                        dircache.scripts[sn].ncs_mtime = os.path.getmtime(ncs_path)
+
             # Statz
             time.sleep(0.5)
             self.write_build_results("-" * 80 + "\n")
@@ -165,7 +174,8 @@ class nwscript_builder(sublime_plugin.WindowCommand):
                 # # Cache include-only mtimes by calculating the max mtime of all dependant scripts HERE
 
                 if ext == ".nss":
-                    if script.nss is None or os.path.getmtime(filepath) > dircache.last_build:
+                    script.nss_mtime = os.path.getmtime(filepath)
+                    if script.nss is None or script.nss_mtime > dircache.last_build:
                         # Script is unknown or has been modified, parse it
                         (script.has_main, script.dependencies) = self.parse_script(filepath)
                     script.nss = filename
@@ -184,12 +194,19 @@ class nwscript_builder(sublime_plugin.WindowCommand):
     def get_unbuild_scripts(self, workdir: str):
         dircache = self.cache[workdir]
 
-        ncs_mtimes = {}
+        include_ncs_mtimes = {}
         def get_ncs_mtime(script_name):
-            if script_name not in ncs_mtimes:
-                ncs = os.path.join(workdir, dircache.scripts[script_name].ncs)
-                ncs_mtimes[script_name] = os.path.getmtime(ncs)
-            return ncs_mtimes[script_name]
+            script = dircache.scripts[script_name]
+            if script.ncs_mtime is None:
+                ncs = os.path.join(workdir, script.ncs)
+                script.ncs_mtime = os.path.getmtime(ncs)
+            assert dircache.scripts[script_name].ncs_mtime is not None
+            return dircache.scripts[script_name].ncs_mtime
+
+            # if script_name not in ncs_mtimes:
+            #     ncs = os.path.join(workdir, dircache.scripts[script_name].ncs)
+            #     ncs_mtimes[script_name] = os.path.getmtime(ncs)
+            # return ncs_mtimes[script_name]
 
         def get_latest_ncs_mtime_for(script_name, explored=set()) -> float:
             if script_name not in dircache.scripts:
@@ -206,8 +223,8 @@ class nwscript_builder(sublime_plugin.WindowCommand):
                     return 0.0
             else:
                 # print(script_name, "has no main. dependant scripts:", dircache.reversed_deps.get(script_name, set()))
-                if script_name in ncs_mtimes:
-                    return ncs_mtimes[script_name]
+                if script_name in include_ncs_mtimes:
+                    return include_ncs_mtimes[script_name]
 
                 min_mtime = time.time()
                 for sn in dircache.reversed_deps.get(script_name, set()):
@@ -217,26 +234,27 @@ class nwscript_builder(sublime_plugin.WindowCommand):
                         if mtime < min_mtime:
                             min_mtime = mtime
 
-                ncs_mtimes[script_name] = min_mtime
+                include_ncs_mtimes[script_name] = min_mtime
                 return min_mtime  # TODO: does not whork when modifying _misc
 
         modified_scripts = []
         for script_name, script in dircache.scripts.items():
             if script.nss is None:
                 continue
-            nss = os.path.join(workdir, script.nss)
 
             if script.has_main:
+                # Script has a main / Startingconditional function
                 if script.ncs is None:
                     modified_scripts.append(script_name)
                 else:
-                    if os.path.getmtime(nss) > get_ncs_mtime(script_name):
+                    # if os.path.getmtime(nss) > get_ncs_mtime(script_name):
+                    if script.nss_mtime > get_ncs_mtime(script_name):
                         modified_scripts.append(script_name)
             else:
                 # Include only file
                 latest_ncs_mtime = get_latest_ncs_mtime_for(script_name)
 
-                if os.path.getmtime(nss) > latest_ncs_mtime:
+                if script.nss_mtime > latest_ncs_mtime:
                     modified_scripts.append(script_name)
 
         assert "alert_sms" not in modified_scripts
@@ -265,7 +283,6 @@ class nwscript_builder(sublime_plugin.WindowCommand):
         [add(s) for s in modified_scripts]
 
         return list(scripts_to_build)
-
 
 
 
@@ -345,7 +362,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
                 # Limit number of concurrent subprocesses
                 while count_running_processes() >= multiprocessing.cpu_count():
-                    time.sleep(1)
+                    time.sleep(0.1)
 
         except Exception as e:
             self.write_build_results("nwscript-smartbuild error: %s\n" % e)
