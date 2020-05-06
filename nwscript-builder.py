@@ -6,16 +6,24 @@ import threading
 import multiprocessing
 import os
 import re
-import glob
 import time
-from itertools import chain
 
 
-class DependencyInfo:
-    # script name => list of files that include this script
-    dependent_scripts = None
-    # script name => list of included scripts (dependencies)
-    script_dependencies = None
+class Script:
+    nss = None
+    ncs = None
+
+    has_main = True
+    dependencies = None
+
+
+class DirCache:
+    # script name => Script object
+    scripts = {}
+
+    # script_name => set(scripts depending on script_name)
+    reversed_deps = {}
+
     # Last build time
     last_build = 0.0
 
@@ -31,7 +39,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
     rgx_include = re.compile(r'^\s*#\s*include\s+"(.+?)"')
 
-    # directory => DependencyInfo
+    # directory => DirCache
     cache = {}
 
     encoding = "cp850"
@@ -44,9 +52,6 @@ class nwscript_builder(sublime_plugin.WindowCommand):
         if "file_path" not in vars:
             return
         working_dir = vars['file_path']
-
-        if working_dir not in self.cache:
-            self.cache[working_dir] = DependencyInfo()
 
         with self.panel_lock:
             # Open results panel and configure it
@@ -65,14 +70,18 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
             self.window.run_command("show_panel", {"panel": "output.exec"})
 
+        # Fix scrolling issue
+        self.write_build_results("\n")
+        self.panel.set_viewport_position((0, 0))
+
         # Work in a separate thread to so main thread doesn't freeze
         threading.Thread(
-            target=self.update_and_build,
+            target=self.run_build,
             args=(working_dir, build_all)
         ).start()
 
 
-    def update_and_build(self, working_dir, build_all):
+    def run_build(self, working_dir: str, build_all: bool):
         # Stop currently running processes
         if self.build_lock.locked():
             self.write_build_results("STOPPING CURRENT BUILD\n")
@@ -85,76 +94,198 @@ class nwscript_builder(sublime_plugin.WindowCommand):
             self.write_build_results("STOPPED\n")
 
         with self.build_lock:
-            first_time_build = self.cache[working_dir].last_build == 0.0
+            # Get / create cache if needed
+            dircache = self.cache.setdefault(working_dir, DirCache)
 
-            # Update time of last build
-            since = self.cache[working_dir].last_build
-            self.cache[working_dir].last_build = time.time()
+            # Save current time (dircache.last_build will be updated once build is finished)
+            curr_build = time.time()
 
-            script_list = set()
-            if build_all is False:
-                # Parse nss files to update dependent_scripts and script_dependencies
-                modified_list = self.update_include_graph(working_dir, since)
+            # Build / update script list
+            self.update_script_list(working_dir)
 
-                # Go through the include graph to find files that needs to be re-built
-                include_list = set()
-                def add_script(script):
-                    if script not in self.cache[working_dir].dependent_scripts:
-                        # Script is not included elsewhere, probably has a main() function
-                        script_list.add(script)
-                    else:
-                        # Script is included by several other scripts
-                        if script not in include_list:
-                            include_list.add(script)
-                            for s in self.cache[working_dir].dependent_scripts[script]:
-                                add_script(s)
-
-                for s in modified_list:
-                    add_script(s)
-
+            # Get modified script + scripts using them
+            if build_all:
+                scripts_to_build = [sn for sn in dircache.scripts if dircache.scripts[sn].nss is not None]
             else:
-                # Add every script file in the working directory
-                self.cache[working_dir].last_build = time.time()
-                for filepath in glob.iglob(os.path.join(working_dir, "*.nss")):
-                    script_name = os.path.splitext(os.path.basename(filepath))[0]
-                    script_list.add(script_name)
+                scripts_to_build = self.get_unbuild_scripts(working_dir)
 
-
-            # Do nothing if there's nothing to do :)
-            if len(script_list) == 0:
-                self.write_build_results("No scripts to build")
+            if len(scripts_to_build) == 0:
+                self.write_build_results("No scripts needs to be compiled\n")
                 return
 
-            # Replace script names with paths
-            script_list = [os.path.join(working_dir, name + ".nss") for name in script_list]
-
-            if first_time_build or build_all:
-                self.write_build_results("Full build: %d scripts will be re-compiled\n" % len(script_list))
+            self.write_build_results("%d scripts will be compiled: " % len(scripts_to_build))
+            if len(scripts_to_build) < 100:
+                self.write_build_results(", ".join(scripts_to_build) + "\n")
             else:
-                self.write_build_results("%d script(s) to compile: %s\n" % (
-                    len(script_list),
-                    ", ".join([os.path.splitext(os.path.basename(f))[0] for f in script_list]),
-                ))
+                self.write_build_results(", ".join(scripts_to_build[0:100]) + " and more... \n")
             self.write_build_results("-" * 80 + "\n")
 
+            # Source files to compile
+            src_to_build = [dircache.scripts[sn].nss for sn in scripts_to_build]
 
             # Build the scripts
-            build_start = time.time()
+            perf_build_start = time.time()
 
-            status = self.compile_script_list(working_dir, script_list)
+            status = self.compile_files(working_dir, src_to_build)
 
-            build_end = time.time()
-            build_duration = build_end - build_start
+            perf_build_end = time.time()
+            perf_build_duration = perf_build_end - perf_build_start
+
+            if not self.stop_build:
+                dircache.last_build = curr_build
 
             # Statz
             time.sleep(0.5)
             self.write_build_results("-" * 80 + "\n")
             if status == 0:
-                self.write_build_results("Finished smart build in %.1f seconds with no errors\n" % build_duration)
+                self.write_build_results(
+                    "Finished smart build in %.1f seconds with no errors\n" % perf_build_duration
+                )
             else:
-                self.write_build_results("Finished smart build in %.1f seconds with some errors\n" % build_duration)
+                self.write_build_results(
+                    "Finished smart build in %.1f seconds with some errors\n" % perf_build_duration
+                )
 
-    def compile_script_list(self, working_dir, script_list: list):
+    def update_script_list(self, workdir: str):
+        dircache = self.cache.setdefault(workdir, DirCache)
+
+        # Find all scripts in workdir
+        for filename in os.listdir(workdir):
+            ext = os.path.splitext(filename)[1].lower()
+            if ext == ".nss" or ext == ".ncs":
+                filepath = os.path.join(workdir, filename)
+                if not os.path.isfile(filepath):
+                    continue
+
+                script_name = os.path.splitext(filename)[0].lower()
+
+                script = dircache.scripts.setdefault(script_name, Script())
+
+                # TODO
+                # # Cache include-only mtimes by calculating the max mtime of all dependant scripts HERE
+
+                if ext == ".nss":
+                    if script.nss is None or os.path.getmtime(filepath) > dircache.last_build:
+                        # Script is unknown or has been modified, parse it
+                        (script.has_main, script.dependencies) = self.parse_script(filepath)
+                    script.nss = filename
+                else:
+                    script.ncs = filename
+
+        # Update reversed dependency graph
+        dircache.reversed_deps = {}
+        for script_name, script in dircache.scripts.items():
+            if script.nss is None:
+                self.write_build_results("Note: script %s has no source file\n" % script_name)
+            else:
+                for dep in script.dependencies:
+                    dircache.reversed_deps.setdefault(dep, set()).add(script_name)
+
+    def get_unbuild_scripts(self, workdir: str):
+        dircache = self.cache[workdir]
+
+        ncs_mtimes = {}
+        def get_ncs_mtime(script_name):
+            if script_name not in ncs_mtimes:
+                ncs = os.path.join(workdir, dircache.scripts[script_name].ncs)
+                ncs_mtimes[script_name] = os.path.getmtime(ncs)
+            return ncs_mtimes[script_name]
+
+        def get_latest_ncs_mtime_for(script_name, explored=set()) -> float:
+            if script_name not in dircache.scripts:
+                self.write_build_results("Note: %s is not found in current directory\n" % script_name)
+                return time.now()
+
+            if dircache.scripts[script_name].has_main:
+                # print(script_name, "has main")
+                if dircache.scripts[script_name].ncs is not None:
+                    # There is an existing NCS file
+                    return get_ncs_mtime(script_name)
+                else:
+                    # Missing NCS file, we need to compile it
+                    return 0.0
+            else:
+                # print(script_name, "has no main. dependant scripts:", dircache.reversed_deps.get(script_name, set()))
+                if script_name in ncs_mtimes:
+                    return ncs_mtimes[script_name]
+
+                min_mtime = time.time()
+                for sn in dircache.reversed_deps.get(script_name, set()):
+                    if sn not in explored:
+                        explored.add(sn)
+                        mtime = get_latest_ncs_mtime_for(sn, explored)
+                        if mtime < min_mtime:
+                            min_mtime = mtime
+
+                ncs_mtimes[script_name] = min_mtime
+                return min_mtime  # TODO: does not whork when modifying _misc
+
+        modified_scripts = []
+        for script_name, script in dircache.scripts.items():
+            if script.nss is None:
+                continue
+            nss = os.path.join(workdir, script.nss)
+
+            if script.has_main:
+                if script.ncs is None:
+                    modified_scripts.append(script_name)
+                else:
+                    if os.path.getmtime(nss) > get_ncs_mtime(script_name):
+                        modified_scripts.append(script_name)
+            else:
+                # Include only file
+                latest_ncs_mtime = get_latest_ncs_mtime_for(script_name)
+
+                if os.path.getmtime(nss) > latest_ncs_mtime:
+                    modified_scripts.append(script_name)
+
+        assert "alert_sms" not in modified_scripts
+        assert "gui_lcda_issues" not in modified_scripts
+
+        self.write_build_results("%d scripts have been modified: " % len(modified_scripts))
+        if len(modified_scripts) < 100:
+            self.write_build_results(", ".join(modified_scripts) + "\n")
+        else:
+            self.write_build_results(", ".join(modified_scripts[0:100]) + " and more... \n")
+
+        scripts_to_build = set()
+        explored_scripts = set()
+        def add(script):
+            if script in explored_scripts:
+                return
+            explored_scripts.add(script)
+
+            if script in dircache.reversed_deps:
+                # Script is an include script, try adding all script using it
+                [add(s) for s in dircache.reversed_deps[script]]
+            else:
+                scripts_to_build.add(script)
+
+        # Try adding all modified scripts to scripts_to_build
+        [add(s) for s in modified_scripts]
+
+        return list(scripts_to_build)
+
+
+
+
+    rgx_comment = re.compile(r'//.*?$|/\*.*?\*/', re.DOTALL | re.MULTILINE)
+    rgx_include = re.compile(r'^\s*#\s*include\s+"(.+?)"', re.MULTILINE)
+    rgx_main = re.compile(r'(void|int)\s+(main|StartingConditional)\s*\(.*?\)\s*\{', re.DOTALL | re.MULTILINE)
+
+    def parse_script(self, filepath: str) -> (bool, list):
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as file:
+            data = file.read()
+            data = self.rgx_comment.sub("", data)
+
+            has_main = self.rgx_main.search(data) is not None
+            includes = [m.lower() for m in self.rgx_include.findall(data)]
+
+            return (has_main, includes)
+
+        return None
+
+    def compile_files(self, working_dir, script_list: list):
         # Get compiler config
         settings = sublime.load_settings('nwscript.sublime-settings')
         compiler_cmd = settings.get("compiler_cmd")
@@ -230,61 +361,6 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
         # Return 0 if no error, otherwise != 0
         return status
-
-
-    # since: date of the last incremental or full build
-    def update_include_graph(self, directory, since):
-        first_time = self.cache[directory].script_dependencies is None
-        if first_time:
-            self.cache[directory].script_dependencies = {}
-            self.cache[directory].dependent_scripts = {}
-            self.write_build_results("Building dependency graph for the first time...\n")
-        else:
-            self.write_build_results("Updating dependency graph...\n")
-
-        modified_files = []
-
-        for filepath in glob.iglob(os.path.join(directory, "*.nss")):
-            mtime = os.path.getmtime(filepath)
-            if mtime > since or first_time:
-                script_name = os.path.splitext(os.path.basename(filepath))[0]
-
-                if mtime > since:
-                    modified_files.append(script_name)
-
-                # Read file to find #include directives
-                with open(filepath, "r", encoding="utf-8", errors="ignore") as file:
-
-                    previous_includes = set(self.cache[directory].script_dependencies.get(script_name, []))
-                    new_includes = set()
-
-                    # Find includes in the new version of the file
-                    for line in file:
-                        m = self.rgx_include.match(line)
-                        if m:
-                            new_includes.add(m.group(1))
-
-                    # Update dependent_scripts and script_dependencies
-                    added_includes = new_includes - previous_includes
-                    removed_includes = previous_includes - new_includes
-
-                    for inc in removed_includes:
-                        self.cache[directory].dependent_scripts[inc].remove(script_name)
-
-                    for inc in added_includes:
-                        if inc not in self.cache[directory].dependent_scripts:
-                            self.cache[directory].dependent_scripts[inc] = []
-                        self.cache[directory].dependent_scripts[inc].append(script_name)
-
-                    self.cache[directory].script_dependencies[script_name] = new_includes
-
-        if first_time:
-            self.write_build_results("  %d include-only scripts\n" % len(self.cache[directory].dependent_scripts))
-        else:
-            self.write_build_results("  %d modified files: %s\n" % (len(modified_files), modified_files))
-
-        return modified_files
-
 
     def write_build_results(self, text):
         with self.panel_lock:
