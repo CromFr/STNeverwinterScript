@@ -191,7 +191,6 @@ class nwscript_builder(sublime_plugin.WindowCommand):
                     # Parse NCS file to know if it should have an associated NSS file
                     with open(os.path.join(workdir, script.ncs), "rb") as file:
                         header = file.read(0x3f)
-                        print(header[0x1B : 0x3f])
                         if len(header) == 0x3f and header[0x1B : 0x3f] == b"NWScript Platform Native Script v1.0":
                             script.ncs_is_native = True
                         else:
