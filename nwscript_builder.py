@@ -20,6 +20,8 @@ class Script:
     nss_mtime = None  # Set at the beginning of each build
     ncs_mtime = None  # Set on first run and after each compilation
 
+    ncs_is_native = None
+
 class DirCache:
     # script name => Script object
     scripts = {}
@@ -32,6 +34,7 @@ class DirCache:
 
 
 class nwscript_builder(sublime_plugin.WindowCommand):
+    settings = sublime.load_settings('nwscript.sublime-settings')
 
     panel = None
     panel_lock = threading.Lock()
@@ -171,9 +174,6 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
                 script = dircache.scripts.setdefault(script_name, Script())
 
-                # TODO
-                # # Cache include-only mtimes by calculating the max mtime of all dependent scripts HERE
-
                 if ext == ".nss":
                     script.nss_mtime = os.path.getmtime(filepath)
                     if script.nss is None or script.nss_mtime > dircache.last_build:
@@ -187,7 +187,17 @@ class nwscript_builder(sublime_plugin.WindowCommand):
         dircache.reversed_deps = {}
         for script_name, script in dircache.scripts.items():
             if script.nss is None:
-                self.write_build_results("Note: script %s has no source file\n" % script_name)
+                if script.ncs_is_native is None:
+                    # Parse NCS file to know if it should have an associated NSS file
+                    with open(os.path.join(workdir, script.ncs), "rb") as file:
+                        header = file.read(0x3f)
+                        print(header[0x1B : 0x3f])
+                        if len(header) == 0x3f and header[0x1B : 0x3f] == b"NWScript Platform Native Script v1.0":
+                            script.ncs_is_native = True
+                        else:
+                            self.write_build_results("Note: script %s has no source file\n" % script_name)
+                            script.ncs_is_native = False
+
             else:
                 for dep in script.dependencies:
                     dircache.reversed_deps.setdefault(dep, set()).add(script_name)
@@ -304,9 +314,8 @@ class nwscript_builder(sublime_plugin.WindowCommand):
     # Compile many files by spreading them across multiple compiler processes
     def compile_files(self, working_dir, script_list: list):
         # Get compiler config
-        settings = sublime.load_settings('nwscript.sublime-settings')
-        compiler_cmd = settings.get("compiler_cmd")
-        include_path = settings.get("include_path")
+        compiler_cmd = self.settings.get("compiler_cmd")
+        include_path = self.settings.get("include_path")
         include_args = []
         for inc in include_path:
             include_args.extend(["-i", inc])
