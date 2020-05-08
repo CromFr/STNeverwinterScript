@@ -20,4 +20,7 @@
 	// "include_path": [
 	// 	"/opt/NWNScriptCompiler/Scripts",
 	// ],
+
+	// Show the documentation of function in a popup
+	"enable_doc_popup": true,
 }

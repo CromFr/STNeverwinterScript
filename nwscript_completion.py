@@ -2,20 +2,8 @@ import sublime
 import sublime_plugin
 import os
 import re
+import threading
 from .nwscript_doc_fixes import get_doc_fix
-
-plugin_settings = None
-
-
-def read_all_settings(key):
-    global plugin_settings
-    if plugin_settings is None:
-        plugin_settings = sublime.load_settings('nwscript.sublime-settings')
-
-    result = plugin_settings.get(key, [])
-    result.extend(sublime.active_window().active_view().settings().get(key, []))
-    return result
-
 
 class FileCompletions:
     file = None
@@ -27,37 +15,64 @@ class FileCompletions:
     symbol_list = {}
 
 
+
 class NWScriptCompletion(sublime_plugin.EventListener):
 
-    # script resref => FileCompletions
-    cached_completions = {}
+    settings = sublime.load_settings('nwscript.sublime-settings')
 
-    def on_query_completions(self, view, prefix, locations):
+    # script resref => FileCompletions
+    cached_completions = None
+
+    # Set of include-only files
+    include_completions = None
+
+    def on_query_completions(self, view: sublime.View, prefix: str, locations):
         if not view.scope_name(locations[0]).startswith('source.nss'):
             return
+
+        file_path = view.file_name()
+        file_data = view.substr(sublime.Region(0, view.size()))
+        module_folder = os.path.normpath(file_path + "/..")
 
         position = locations[0]
         position = position - len(prefix)
         if (view.substr(position) != '.'):
             position = locations[0]
 
-        file_name = view.file_name()
-        file_data = view.substr(sublime.Region(0, view.size()))
-        return self.request_completions(file_name, file_data, position)
+        # Populate cache now if empty
+        compl_result = self.init_cache(view)
+        self.init_include_list(module_folder)
+
+        # Handle #include completions
+        row, col = view.rowcol(position)
+        line = view.substr(sublime.Region(view.text_point(row, 0), position))
+
+        if self.rgx_include_partial.match(line) is not None:
+            return (
+                self.request_include_completions(module_folder),
+                sublime.INHIBIT_WORD_COMPLETIONS | sublime.INHIBIT_EXPLICIT_COMPLETIONS
+            )
+
+        # Return comp is cached_completions has been initialized in this call
+        if compl_result is not None:
+            return compl_result
+        return self.request_completions(file_path, file_data)
 
     def on_modified(self, view: sublime.View) -> None:
         if int(sublime.version()) < 3070:
             return
-
         point = view.sel()[0].begin()
         if not view.scope_name(point).startswith('source.nss'):
+            return
+        if self.settings.get("enable_doc_popup") is False:
             return
 
         if view.substr(point) in ['(', ')'] or point != view.sel()[0].end():
             point -= 1
 
-        func_name = view.substr(view.word(point))
+        self.init_cache(view)
 
+        func_name = view.substr(view.word(point))
         resref = os.path.splitext(os.path.basename(view.file_name()))[0]
 
         doc = self.find_documentation(resref, func_name, set())
@@ -67,7 +82,17 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                 location=-1, max_width=600, flags=sublime.COOPERATE_WITH_AUTO_COMPLETE
             )
 
-    def find_documentation(self, resref, symbol, _explored_resrefs) -> str:
+    def init_cache(self, view: sublime.View):
+        if self.cached_completions is None:
+            self.cached_completions = {}
+            return self.request_completions(
+                view.file_name(),
+                view.substr(sublime.Region(0, view.size())),
+            )
+        return None
+
+
+    def find_documentation(self, resref: str, symbol: str, _explored_resrefs: set) -> str:
         if resref in _explored_resrefs:
             return
         _explored_resrefs.add(resref)
@@ -89,17 +114,16 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         return None
 
     _cpl = None
-
-    def request_completions(self, file, file_data, position):
-        folder = os.path.normpath(file + "/..")
-        resref = os.path.splitext(os.path.basename(file))[0]
+    def request_completions(self, file_path: str, file_data: str) -> list:
+        folder = os.path.normpath(file_path + "/..")
+        resref = os.path.splitext(os.path.basename(file_path))[0]
 
         self._cpl = []
 
         # Get completions for current file
         comp = FileCompletions()
-        comp.file = file
-        comp.mtime = os.path.getmtime(file)
+        comp.file = file_path
+        comp.mtime = os.path.getmtime(file_path)
         comp.dependencies = self.parse_script_dependencies(file_data)
         comp.completions, comp.documentation, comp.symbol_list \
             = self.parse_script_completions(resref, file_data)
@@ -141,13 +165,14 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                     = self.parse_script_completions(file_resref, file_data)
                 self.cached_completions[file_resref] = file_comp
 
-        self._cpl.extend(file_comp.completions)
+        if file_comp is not None:
+            self._cpl.extend(file_comp.completions)
 
-        for dep_resref in file_comp.dependencies:
-            self._request_completions_recurr(folder, dep_resref, _explored_resref)
+            for dep_resref in file_comp.dependencies:
+                self._request_completions_recurr(folder, dep_resref, _explored_resref)
 
     def find_file_by_resref(self, folder, resref):
-        path_list = read_all_settings("include_path") + [folder]
+        path_list = [folder] + self.settings.get("include_path")
         for path in path_list:
             file = os.path.join(path, resref + ".nss")
             if os.path.isfile(file):
@@ -170,6 +195,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         symbols = {}
         ret_cpl = []
         ret_doc = []
+        has_main = False
 
         file_data = self.rgx_multiline_comment.sub("", file_data)
 
@@ -181,7 +207,9 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
         # Function completion
         for (fun_doc, fun_type, fun_name, fun_args) in matches:
-            if fun_name not in ("main", "StartingConditional"):
+            if fun_name in ("main", "StartingConditional"):
+                has_main = True
+            else:
                 # Parse function arguments
                 args_list = []
                 i = 0
@@ -234,7 +262,52 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             ret_cpl.append([def_name + "\t" + def_value, def_name])
             ret_doc.append("")
 
+        # update include completions
+        if self.include_completions is not None:
+            if has_main:
+                self.include_completions.add(file_resref)
+            else:
+                self.include_completions.discard(file_resref)
+
         return (ret_cpl, ret_doc, symbols)
+
+    def init_include_list(self, module_path):
+        if self.include_completions is not None:
+            return
+
+        sublime.active_window().status_message("Building #include completions...")
+
+        def worker():
+            self.include_completions = set()
+            completions = set()
+            for folder in [module_path] + self.settings.get("include_path"):
+                for filename in os.listdir(folder):
+                    ext = os.path.splitext(filename)[1].lower()
+                    if ext != ".nss":
+                        continue
+                    file_path = os.path.join(folder, filename)
+                    if not os.path.isfile(file_path):
+                        continue
+
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                        data = f.read()
+                        data = self.rgx_comment.sub("", data)
+                        has_main = self.rgx_main.search(data) is not None
+
+                        if not has_main:
+                            self.include_completions.add(os.path.splitext(filename)[0])
+
+            sublime.active_window().status_message("Building #include completions... Done !")
+
+        threading.Thread(
+            target=worker,
+            args=()
+        ).start()
+
+    def request_include_completions(self, module_path):
+        self.init_include_list(module_path)
+        return [[resref + "\tscript", resref] for resref in self.include_completions]
+
 
     nwn_types = r'(void|string|int|float|object|vector|location|effect|event|talent|itemproperty|action|struct\s+\w+)'
     rgx_fun = re.compile(
@@ -270,4 +343,13 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         r'^(?!\s*//)\s*#include\s+"([\w-]+)"',
         re.MULTILINE)
 
+    rgx_comment = re.compile(r'/\*.*?\*/|//[^\n]*', re.DOTALL)
     rgx_multiline_comment = re.compile(r'/\*.*?\*/', re.DOTALL)
+    rgx_include_partial = re.compile(
+        r'^(?!\s*//)\s*#include\s+"([\w-]*)',
+        re.MULTILINE)
+    rgx_main = re.compile(
+        r'^[ \t]*(?:int|void)\s+'
+        r'(main|StartingConditional)\s*'
+        r'\(([^)]*?)\)\s*\{',
+        re.DOTALL | re.MULTILINE)
