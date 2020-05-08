@@ -94,12 +94,12 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
         with self.build_lock:
             # Get / create cache if needed
-            dircache = self.cache.setdefault(working_dir, DirCache)
+            dircache = self.cache.setdefault(working_dir, DirCache())
 
             # Save current time (dircache.last_build will be updated once build is finished)
             curr_build = time.time()
 
-            self.write_build_results("Looking for modifications...\n")
+            self.write_build_results("Parsing scripts in %s...\n" % working_dir)
             # Fix scrolling issue
             self.panel.set_viewport_position((0, 0))
 
@@ -110,7 +110,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
             if build_all:
                 scripts_to_build = [sn for sn in dircache.scripts if dircache.scripts[sn].nss is not None]
             else:
-                scripts_to_build = self.get_unbuild_scripts(working_dir)
+                scripts_to_build = self.get_unbuilt_scripts(working_dir)
 
             if len(scripts_to_build) == 0:
                 self.write_build_results("No scripts needs to be compiled\n")
@@ -157,7 +157,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
     # List all scripts in workdir and update information in self.cache[workdir]
     def update_script_list(self, workdir: str):
-        dircache = self.cache.setdefault(workdir, DirCache)
+        dircache = self.cache.setdefault(workdir, DirCache())
 
         # Find all scripts in workdir
         for filename in os.listdir(workdir):
@@ -194,7 +194,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
     # Go through self.cache[workdir].scripts to extract all scripts that needs to be built based on
     # modification times of NSS vs NCS
-    def get_unbuild_scripts(self, workdir: str):
+    def get_unbuilt_scripts(self, workdir: str):
         dircache = self.cache[workdir]
 
         # Cached mtimes calculated by taking the oldest value from all dependencies
