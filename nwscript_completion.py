@@ -171,6 +171,8 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         ret_cpl = []
         ret_doc = []
 
+        file_data = self.rgx_multiline_comment.sub("", file_data)
+
         custom = ""
         if file_resref != "nwscript":
             custom = "⋄"
@@ -266,4 +268,6 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
     rgx_include = re.compile(
         r'^(?!\s*//)\s*#include\s+"([\w-]+)"',
-        re.DOTALL | re.MULTILINE)
+        re.MULTILINE)
+
+    rgx_multiline_comment = re.compile(r'/\*.*?\*/', re.DOTALL)
