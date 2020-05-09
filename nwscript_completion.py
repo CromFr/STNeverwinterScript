@@ -26,13 +26,13 @@ class NWScriptCompletion(sublime_plugin.EventListener):
     # Set of include-only files
     include_completions = None
 
-    def on_query_completions(self, view: sublime.View, prefix: str, locations):
-        if not view.scope_name(locations[0]).startswith('source.nss'):
+    def on_query_completions(self, view: sublime.View, prefix: str, locations: (str, str, (int, int))) -> list:
+        if not view.scope_name(locations[0]).startswith("source.nss"):
             return
 
         file_path = view.file_name()
         file_data = view.substr(sublime.Region(0, view.size()))
-        module_folder = os.path.normpath(file_path + "/..")
+        module_path = os.path.dirname(file_path)
 
         position = locations[0]
         position = position - len(prefix)
@@ -41,7 +41,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
         # Populate cache now if empty
         compl_result = self.init_cache(view)
-        self.init_include_list(module_folder)
+        self.init_include_list(module_path)
 
         # Handle #include completions
         row, col = view.rowcol(position)
@@ -49,20 +49,20 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
         if self.rgx_include_partial.match(line) is not None:
             return (
-                self.request_include_completions(module_folder),
+                self.request_include_completions(module_path),
                 sublime.INHIBIT_WORD_COMPLETIONS | sublime.INHIBIT_EXPLICIT_COMPLETIONS
             )
 
         # Return comp is cached_completions has been initialized in this call
         if compl_result is not None:
             return compl_result
-        return self.request_completions(file_path, file_data)
+        return self.request_completions(module_path, file_path, file_data)
 
     def on_modified(self, view: sublime.View) -> None:
         if int(sublime.version()) < 3070:
             return
         point = view.sel()[0].begin()
-        if not view.scope_name(point).startswith('source.nss'):
+        if not view.scope_name(point).startswith("source.nss"):
             return
         if self.settings.get("enable_doc_popup") is False:
             return
@@ -72,20 +72,55 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
         self.init_cache(view)
 
-        func_name = view.substr(view.word(point))
-        resref = os.path.splitext(os.path.basename(view.file_name()))[0]
+        self.show_popup_for(
+            view,
+            resref=self.get_resref(view.file_name()),
+            symbol=view.substr(view.word(point)),
+        )
 
-        doc = self.find_documentation(resref, func_name, set())
+    def on_hover(self, view: sublime.View, point: tuple, hover_zone) -> None:
+        if hover_zone != sublime.HOVER_TEXT:
+            return
+        if not view.scope_name(point).startswith("source.nss"):
+            return
+
+        # Ignore hover over non selected text
+        selection = view.sel()[0]
+        if not selection.contains(point):
+            return
+
+        symbol = view.substr(view.word(point))
+        if view.substr(selection) != symbol:
+            return
+
+        self.init_cache(view)
+
+        self.show_popup_for(
+            view,
+            resref=self.get_resref(view.file_name()),
+            symbol=symbol,
+        )
+
+
+    @staticmethod
+    def get_resref(file_path: str) -> str:
+        return os.path.splitext(os.path.basename(file_path))[0]
+
+    def show_popup_for(self, view, resref, symbol) -> bool:
+        doc = self.find_documentation(resref, symbol, set())
         if doc is not None:
             view.show_popup(
                 doc,
                 location=-1, max_width=600, flags=sublime.COOPERATE_WITH_AUTO_COMPLETE
             )
+            return True
+        return False
 
     def init_cache(self, view: sublime.View):
         if self.cached_completions is None:
             self.cached_completions = {}
             return self.request_completions(
+                os.path.dirname(view.file_name()),
                 view.file_name(),
                 view.substr(sublime.Region(0, view.size())),
             )
@@ -114,8 +149,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         return None
 
     _cpl = None
-    def request_completions(self, file_path: str, file_data: str) -> list:
-        folder = os.path.normpath(file_path + "/..")
+    def request_completions(self, module_path: str, file_path: str, file_data: str) -> list:
         resref = os.path.splitext(os.path.basename(file_path))[0]
 
         self._cpl = []
@@ -134,19 +168,19 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         # Add completions from dependencies
         explored_resref = set()
         for dep in comp.dependencies:
-            self._request_completions_recurr(folder, dep, explored_resref)
+            self._request_completions_recurr(module_path, dep, explored_resref)
 
         # Return result
         return self._cpl
 
-    def _request_completions_recurr(self, folder, file_resref, _explored_resref=set()):
-        if file_resref in _explored_resref:
+    def _request_completions_recurr(self, module_path, resref, _explored_resrefs):
+        if resref in _explored_resrefs:
             return
-        _explored_resref.add(file_resref)
+        _explored_resrefs.add(resref)
 
-        file_comp = self.cached_completions.get(file_resref, None)
+        file_comp = self.cached_completions.get(resref, None)
         if file_comp is None or os.path.getmtime(file_comp.file) > file_comp.mtime:
-            file_path = self.find_file_by_resref(folder, file_resref)
+            file_path = self.find_file_by_resref(module_path, resref)
             if file_path is not None:
                 file_data = ""
                 try:
@@ -162,17 +196,17 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                 file_comp.mtime = os.path.getmtime(file_path)
                 file_comp.dependencies = self.parse_script_dependencies(file_data)
                 file_comp.completions, file_comp.documentation, file_comp.symbol_list \
-                    = self.parse_script_completions(file_resref, file_data)
-                self.cached_completions[file_resref] = file_comp
+                    = self.parse_script_completions(resref, file_data)
+                self.cached_completions[resref] = file_comp
 
         if file_comp is not None:
             self._cpl.extend(file_comp.completions)
 
             for dep_resref in file_comp.dependencies:
-                self._request_completions_recurr(folder, dep_resref, _explored_resref)
+                self._request_completions_recurr(module_path, dep_resref, _explored_resrefs)
 
-    def find_file_by_resref(self, folder, resref):
-        path_list = [folder] + self.settings.get("include_path")
+    def find_file_by_resref(self, module_path: str, resref: str) -> str:
+        path_list = [module_path] + self.settings.get("include_path")
         for path in path_list:
             file = os.path.join(path, resref + ".nss")
             if os.path.isfile(file):
