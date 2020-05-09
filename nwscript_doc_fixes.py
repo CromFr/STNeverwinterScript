@@ -2,8 +2,7 @@
 
 
 def get_doc_fix(script, symbol) -> str:
-
-    doc = {
+    return {
         "nwscript": {
             "GetObjectByTagAndType": ("Broken", "Always returns OBJECT_INVALID"),
             "SetFog": ("Broken", "Does nothing"),
@@ -135,18 +134,3 @@ def get_doc_fix(script, symbol) -> str:
                 """),
         }
     }.get(script, {}).get(symbol, None)
-
-    if doc is not None:
-        color = {
-            "Broken": "#f00",
-            "Warning": "#ff0",
-            "Note": "#888",
-        }.get(doc[0], "#fff")
-
-        return ('<div style="border-left: 0.5em solid %s; padding-left: 1em">' % color
-                 + '<h3 style="color: %s">%s</h3>' % (color, doc[0])
-                 + '<p>%s</p>' % doc[1]
-                 + '</div>'
-        )
-
-    return None

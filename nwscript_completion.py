@@ -5,7 +5,7 @@ import re
 import threading
 from .nwscript_doc_fixes import get_doc_fix
 
-class FileCompletions:
+class SymbolCompletions:
     file = None
     mtime = None
     dependencies = []
@@ -14,14 +14,53 @@ class FileCompletions:
     documentation = []
     symbol_list = {}
 
+class Documentation:
+    signature = None  # tuple containing type, name and args
+    script_resref = None
+    fix = None  # (severity, text)
+    text = None
+
+    def format_popup(self):
+
+        fix_html = ""
+        if self.fix is not None:
+            color = {
+                "Broken": "#f00",
+                "Warning": "#ff0",
+                "Note": "#888",
+            }.get(self.fix[0], "#fff")
+
+            fix_html = """
+                <div style="border-left: 0.5em solid {color}; padding-left: 1em">
+                    <h3 style="color: {color}">{severity}</h3>
+                    <p>{text}</p>
+                </div>
+            """.format(severity=self.fix[0], color=color, text=self.fix[1])
+
+        text_html = "<br>".join([line[2:] for line in self.text.splitlines()]) if self.text is not None else ""
+        location = "defined in " + self.script_resref if self.script_resref != "nwscript" else "built-in function"
+
+        args_list = self.signature[2].split(", ")
+        args_html = "<br>\t" + ",<br>\t".join(args_list) + "<br>" if len(args_list) > 3 else self.signature[2]
+
+        return """
+        <body style="padding: 0.3em">
+            <div style="padding: 0.5em;">
+                {self.signature[0]} <strong>{self.signature[1]}</strong>({args_html})
+                <div style="padding-left: 1em; color: color(var(--foreground) alpha(0.5));"><em>{location}</em></div>
+            </div>
+            {fix_html}
+            <p>{text_html}</p>
+        </body>
+        """.format(self=self, fix_html=fix_html, text_html=text_html, location=location, args_html=args_html)
 
 
 class NWScriptCompletion(sublime_plugin.EventListener):
 
     settings = sublime.load_settings('nwscript.sublime-settings')
 
-    # script resref => FileCompletions
-    cached_completions = None
+    # script resref => SymbolCompletions
+    symbol_completions = None
 
     # Set of include-only files
     include_completions = None
@@ -30,18 +69,16 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if not view.scope_name(locations[0]).startswith("source.nss"):
             return
 
-        file_path = view.file_name()
-        file_data = view.substr(sublime.Region(0, view.size()))
-        module_path = os.path.dirname(file_path)
-
         position = locations[0]
         position = position - len(prefix)
         if (view.substr(position) != '.'):
             position = locations[0]
 
-        # Populate cache now if empty
-        compl_result = self.init_cache(view)
-        self.init_include_list(module_path)
+        file_path = view.file_name()
+        file_data = view.substr(sublime.Region(0, view.size()))
+        module_path = os.path.dirname(file_path)
+
+        self.parse_script_tree(module_path, file_path, file_data)
 
         # Handle #include completions
         row, col = view.rowcol(position)
@@ -49,32 +86,34 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
         if self.rgx_include_partial.match(line) is not None:
             return (
-                self.request_include_completions(module_path),
+                self.get_include_completions(module_path),
                 sublime.INHIBIT_WORD_COMPLETIONS | sublime.INHIBIT_EXPLICIT_COMPLETIONS
             )
 
-        # Return comp is cached_completions has been initialized in this call
-        if compl_result is not None:
-            return compl_result
-        return self.request_completions(module_path, file_path, file_data)
+        # Handle symbol completions
+        return self.gather_symbol_completions(self.get_resref(file_path))
 
     def on_modified(self, view: sublime.View) -> None:
-        if int(sublime.version()) < 3070:
-            return
         point = view.sel()[0].begin()
         if not view.scope_name(point).startswith("source.nss"):
             return
+
         if self.settings.get("enable_doc_popup") is False:
             return
+
+        file_path = view.file_name()
+        file_data = view.substr(sublime.Region(0, view.size()))
+        module_path = os.path.dirname(file_path)
+
+        if self.settings.get("parse_on_modified") is True:
+            self.parse_script_tree(module_path, file_path, file_data)
 
         if view.substr(point) in ['(', ')'] or point != view.sel()[0].end():
             point -= 1
 
-        self.init_cache(view)
-
-        self.show_popup_for(
+        self.show_doc_popup_for(
             view,
-            resref=self.get_resref(view.file_name()),
+            resref=self.get_resref(file_path),
             symbol=view.substr(view.word(point)),
         )
 
@@ -82,6 +121,9 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if hover_zone != sublime.HOVER_TEXT:
             return
         if not view.scope_name(point).startswith("source.nss"):
+            return
+
+        if self.settings.get("enable_doc_popup") is False:
             return
 
         # Ignore hover over non selected text
@@ -93,9 +135,12 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if view.substr(selection) != symbol:
             return
 
-        self.init_cache(view)
+        file_path = view.file_name()
+        module_path = os.path.dirname(file_path)
 
-        self.show_popup_for(
+        self.parse_script_tree(module_path, file_path, view.substr(sublime.Region(0, view.size())))
+
+        self.show_doc_popup_for(
             view,
             resref=self.get_resref(view.file_name()),
             symbol=symbol,
@@ -106,105 +151,66 @@ class NWScriptCompletion(sublime_plugin.EventListener):
     def get_resref(file_path: str) -> str:
         return os.path.splitext(os.path.basename(file_path))[0]
 
-    def show_popup_for(self, view, resref, symbol) -> bool:
-        doc = self.find_documentation(resref, symbol, set())
+    def show_doc_popup_for(self, view, resref, symbol) -> bool:
+        doc = self.get_documentation(resref, symbol)
         if doc is not None:
             view.show_popup(
-                doc,
+                doc.format_popup(),
                 location=-1, max_width=600, flags=sublime.COOPERATE_WITH_AUTO_COMPLETE
             )
             return True
         return False
 
-    def init_cache(self, view: sublime.View):
-        if self.cached_completions is None:
-            self.cached_completions = {}
-            return self.request_completions(
-                os.path.dirname(view.file_name()),
-                view.file_name(),
-                view.substr(sublime.Region(0, view.size())),
-            )
+    def get_documentation(self, resref: str, symbol: str) -> Documentation:
+        explored_resrefs = set()
+
+        def recurr_get_documentation(curr_resref) -> Documentation:
+            if curr_resref not in self.symbol_completions:
+                return None
+            compl = self.symbol_completions[curr_resref]
+
+            if symbol in compl.symbol_list:
+                return compl.documentation[compl.symbol_list[symbol]]
+
+            for dep in compl.dependencies:
+                if dep not in explored_resrefs:
+                    explored_resrefs.add(dep)
+                    doc = recurr_get_documentation(dep)
+                    if doc is not None:
+                        return doc
+
+            return None
+
+        explored_resrefs.add("nwscript")
+        doc = recurr_get_documentation("nwscript")
+        if doc is not None:
+            return doc
+
+        doc = recurr_get_documentation(resref)
+        if doc is not None:
+            return doc
         return None
 
+    def gather_symbol_completions(self, resref: str) -> list:
+        ret = []
 
-    def find_documentation(self, resref: str, symbol: str, _explored_resrefs: set) -> str:
-        if resref in _explored_resrefs:
-            return
-        _explored_resrefs.add(resref)
+        explored_resrefs = set("nwscript")
+        ret.extend(self.symbol_completions["nwscript"].completions)
 
-        if resref in self.cached_completions:
-            file_comp = self.cached_completions[resref]
+        def recurr_gather_symbol_completions(curr_resref):
+            compl = self.symbol_completions[curr_resref]
+            ret.extend(compl.completions)
 
-            # Search in current script
-            index = file_comp.symbol_list.get(symbol, None)
-            if index is not None:
-                return file_comp.documentation[index]
+            for dep in compl.dependencies:
+                if dep not in explored_resrefs:
+                    explored_resrefs.add(dep)
+                    recurr_gather_symbol_completions(dep)
 
-            # Search in dependencies
-            for dep in file_comp.dependencies:
-                match = self.find_documentation(dep, symbol, _explored_resrefs)
-                if match is not None:
-                    return match
+        explored_resrefs.add(resref)
+        recurr_gather_symbol_completions(resref)
+        return ret
 
-        return None
-
-    _cpl = None
-    def request_completions(self, module_path: str, file_path: str, file_data: str) -> list:
-        resref = os.path.splitext(os.path.basename(file_path))[0]
-
-        self._cpl = []
-
-        # Get completions for current file
-        comp = FileCompletions()
-        comp.file = file_path
-        comp.mtime = os.path.getmtime(file_path)
-        comp.dependencies = self.parse_script_dependencies(file_data)
-        comp.completions, comp.documentation, comp.symbol_list \
-            = self.parse_script_completions(resref, file_data)
-        self.cached_completions[resref] = comp
-
-        self._cpl.extend(comp.completions)
-
-        # Add completions from dependencies
-        explored_resref = set()
-        for dep in comp.dependencies:
-            self._request_completions_recurr(module_path, dep, explored_resref)
-
-        # Return result
-        return self._cpl
-
-    def _request_completions_recurr(self, module_path, resref, _explored_resrefs):
-        if resref in _explored_resrefs:
-            return
-        _explored_resrefs.add(resref)
-
-        file_comp = self.cached_completions.get(resref, None)
-        if file_comp is None or os.path.getmtime(file_comp.file) > file_comp.mtime:
-            file_path = self.find_file_by_resref(module_path, resref)
-            if file_path is not None:
-                file_data = ""
-                try:
-                    file_data = open(file_path).read()
-                except ValueError:
-                    try:
-                        file_data = open(file_path, encoding="utf-8").read()
-                    except ValueError:
-                        pass
-
-                file_comp = FileCompletions()
-                file_comp.file = file_path
-                file_comp.mtime = os.path.getmtime(file_path)
-                file_comp.dependencies = self.parse_script_dependencies(file_data)
-                file_comp.completions, file_comp.documentation, file_comp.symbol_list \
-                    = self.parse_script_completions(resref, file_data)
-                self.cached_completions[resref] = file_comp
-
-        if file_comp is not None:
-            self._cpl.extend(file_comp.completions)
-
-            for dep_resref in file_comp.dependencies:
-                self._request_completions_recurr(module_path, dep_resref, _explored_resrefs)
-
+    # Search through include dirs and module path to find a file matching resref
     def find_file_by_resref(self, module_path: str, resref: str) -> str:
         path_list = [module_path] + self.settings.get("include_path")
         for path in path_list:
@@ -220,27 +226,58 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         print("nwscript-completion: could not find '" + resref + "' in ", path_list)
         return None
 
-    def parse_script_dependencies(self, file_data):
-        matches = self.rgx_include.findall(file_data)
-        return matches + ["nwscript"]
 
-    def parse_script_completions(self, file_resref, file_data) -> (list, list):
-        # symbol => index
-        symbols = {}
-        ret_cpl = []
-        ret_doc = []
+    # Parse a script and its dependencies if they have been modified since last call
+    def parse_script_tree(self, module_path: str, file_path: str, file_data: str = None) -> None:
+        if self.symbol_completions is None:
+            self.symbol_completions = {}
+        if self.include_completions is None:
+            self.init_include_list(module_path)
+
+        explored_resrefs = set("nwscript")
+        if "nwscript" not in self.symbol_completions:
+            self.parse_script(self.find_file_by_resref(module_path, "nwscript"))
+
+        def recurr_parse(file):
+            resref = self.get_resref(file)
+            compl = self.symbol_completions.get(resref, None)
+
+            if compl is None or os.path.getmtime(file) > compl.mtime:
+                resref, compl = self.parse_script(file)
+
+            for dep in compl.dependencies:
+                if dep not in explored_resrefs:
+                    explored_resrefs.add(dep)
+                    dep_resref = self.find_file_by_resref(module_path, dep)
+                    if dep_resref is not None:
+                        recurr_parse(dep_resref)
+
+        start_resref = self.get_resref(file_path)
+        explored_resrefs.add(start_resref)
+        if file_data is not None:
+            self.parse_script(file_path, file_data)
+        recurr_parse(file_path)
+
+
+    # Parse a single script and extract completion info
+    def parse_script(self, file_path: str, file_data: str = None) -> None:
+        if file_data is None:
+            file_data = open(file_path, encoding="utf-8", errors="ignore").read()
+
+        compl = SymbolCompletions()
+        compl.file = file_path
+        compl.mtime = os.path.getmtime(file_path)
+        compl.dependencies = self.rgx_include.findall(file_data)
+        compl.completions = []
+        compl.documentation = []
+        compl.symbol_list = {}
         has_main = False
 
-        file_data = self.rgx_multiline_comment.sub("", file_data)
-
-        custom = ""
-        if file_resref != "nwscript":
-            custom = "⋄"
-
-        matches = self.rgx_fun.findall(file_data)
+        resref = self.get_resref(file_path)
+        custom_mark = "⋄" if resref != "nwscript" else ""
 
         # Function completion
-        for (fun_doc, fun_type, fun_name, fun_args) in matches:
+        for (fun_doc, fun_type, fun_name, fun_args) in self.rgx_fun.findall(file_data):
             if fun_name in ("main", "StartingConditional"):
                 has_main = True
             else:
@@ -252,7 +289,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                         arg_match_obj = self.rgx_fun_arg.search(arg)
                         if arg_match_obj is None:
                             print("nwscript-completion: Could not parse argument '%s' in %s.%s" % (
-                                arg, file_resref, fun_name
+                                arg, resref, fun_name
                             ))
                             arg_match_obj = None
                         else:
@@ -263,47 +300,48 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                             args_list.append("${%d:%s %s}" % (i + 1, arg_match[0], arg_match[1] + default))
                         i = i + 1
 
-                # Format doc
-                doc_fix = get_doc_fix(file_resref, fun_name)
-                fun_doc = (
-                    '<p><div><strong>%s %s(%s)</strong></div><div style="padding-left: 1em"><em>defined in %s</em></div></p>' % (fun_type, fun_name, fun_args, file_resref)
-                    + (doc_fix if doc_fix is not None else "")
-                    + (("<p>" + "<br>".join([line[2:] for line in fun_doc.splitlines()]) + "</p>") if fun_doc != "" and not fun_args.isspace() else "")
-                )
-
-                if fun_name not in symbols:
+                if fun_name not in compl.symbol_list:
                     # Register new symbol
-                    symbols[fun_name] = len(ret_cpl)
-                    ret_cpl.append([
-                        "%s\t%s()" % (fun_name, custom + fun_type),
+                    compl.symbol_list[fun_name] = len(compl.completions)
+                    compl.completions.append([
+                        "%s\t%s()" % (fun_name, custom_mark + fun_type),
                         "%s(%s)" % (fun_name, ", ".join(args_list))
                     ])
-                    ret_doc.append(fun_doc)
+
+                    doc = Documentation()
+                    doc.signature = (fun_type, fun_name, fun_args)
+                    doc.script_resref = resref
+                    doc.fix = get_doc_fix(resref, fun_name)
+                    doc.text = fun_doc if fun_doc != "" and not fun_args.isspace() else None
+                    compl.documentation.append(doc)
                 else:
                     # Set documentation if none
-                    existing_index = symbols[fun_name]
-                    if ret_doc[existing_index] is None:
-                        ret_doc[existing_index] = fun_doc
+                    existing_index = compl.symbol_list[fun_name]
+                    existing_doc = compl.documentation[existing_index]
+                    if existing_doc.text is None:
+                        existing_doc.text = fun_doc if fun_doc != "" and not fun_args.isspace() else None
 
         # const completions
-        glob_rgx = self.rgx_global_nwscript if file_resref == "nwscript" else self.rgx_global_const
+        glob_rgx = self.rgx_global_nwscript if resref == "nwscript" else self.rgx_global_const
         for (glob_type, glob_name, glob_value) in glob_rgx.findall(file_data):
-            ret_cpl.append([glob_name + "\t" + glob_type + "=" + glob_value, glob_name])
-            ret_doc.append("")
+            compl.completions.append([glob_name + "\t" + glob_type + "=" + glob_value, glob_name])
+            compl.documentation.append(None)
 
         # #define completions
         for (def_name, def_value) in self.rgx_fun_define.findall(file_data):
-            ret_cpl.append([def_name + "\t" + def_value, def_name])
-            ret_doc.append("")
+            compl.completions.append([def_name + "\t" + def_value, def_name])
+            compl.documentation.append(None)
 
         # update include completions
         if self.include_completions is not None:
             if has_main:
-                self.include_completions.add(file_resref)
+                self.include_completions.add(resref)
             else:
-                self.include_completions.discard(file_resref)
+                self.include_completions.discard(resref)
 
-        return (ret_cpl, ret_doc, symbols)
+        self.symbol_completions[resref] = compl
+        return (resref, compl)
+
 
     def init_include_list(self, module_path):
         if self.include_completions is not None:
@@ -312,8 +350,8 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         sublime.active_window().status_message("Building #include completions...")
 
         def worker():
+            print("nwscript-completion: Parsing include completions")
             self.include_completions = set()
-            completions = set()
             for folder in [module_path] + self.settings.get("include_path"):
                 for filename in os.listdir(folder):
                     ext = os.path.splitext(filename)[1].lower()
@@ -338,7 +376,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             args=()
         ).start()
 
-    def request_include_completions(self, module_path):
+    def get_include_completions(self, module_path):
         self.init_include_list(module_path)
         return [[resref + "\tscript", resref] for resref in self.include_completions]
 

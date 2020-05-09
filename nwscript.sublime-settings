@@ -23,4 +23,8 @@
 
 	// Show the documentation of function in a popup
 	"enable_doc_popup": true,
+
+	// Parse script and generate completions for each modification in Sublime Text buffer.
+	// Set to false if you experience some performance slowdowns
+	"parse_on_modified": true,
 }
