@@ -4,63 +4,69 @@
 	[
 		"OBJECT_SELF",
 		"OBJECT_INVALID",
-		"TRUE",
-		"FALSE",
 		{
-		"trigger": "while.firstnextvalid",
-		"contents": "${1:/*Variable Type*/} ${2:/*Variable Name*/} = GetFirst${3:/*Getter*/};\nwhile(GetIs${1/^(\\w)/\\u$1/g}Valid(${2:/*Variable Name*/}))\n{\n\t${0:/* code */}\n\t${2:/*variable*/} = GetNext${3:/*Getter*/};\n}"
+		"trigger": "while.firstnextvalid\tsnippet",
+		"contents": "${1:object} ${2:oPC} = GetFirst${3:XXX};\nwhile(GetIs${1/^(\\w)/\\u$1/g}Valid(${2:oPC}))\n{\n\t${0:// Code}\n\t${2:oPC} = GetNext${3:XXX};\n}"
 		},
 		{
-		"trigger": "while.indexedvalid",
-		"contents": "int iIndex = ${4:/*Start Index*/};\n${1:/*Variable Type*/} ${2:/*Variable Name*/} = Get${3:/*Getter*/};\nwhile(GetIs${1/^(\\w)/\\u$1/g}Valid(${2:/*Variable Name*/}))\n{\n\t${0:/*Code*/}\n\tiIndex++;\n\t${2:/*variable*/} = Get${3:/*Getter*/};\n}"
+		"trigger": "while.indexedvalid\tsnippet",
+		"contents": "int iIndex = ${4:0};\n${1:object} ${2:oPC} = Get${3:XXX};\nwhile(GetIs${1/^(\\w)/\\u$1/g}Valid(${2:oPC}))\n{\n\t${0:// Code}\n\tiIndex++;\n\t${2:oPC} = Get${3:XXX};\n}"
 		},
 		{
-		"trigger": "while",
-		"contents": "while(${1:/*Condition*/})\n{\n\t${0:/*Code*/}\n}"
+		"trigger": "while\tsnippet",
+		"contents": "while(${1:Condition})\n{\n\t${0:// Code}\n}"
 		},
 		{
-		"trigger": "for.count",
-		"contents": "int ${1:/*Variable Name*/};\nfor(${1:/*Variable Name*/} = 0 ; ${1:/*Variable Name*/} < ${2:/*Count*/} ; ${1:/*Variable Name*/}++)\n{\n\t${0:/*Code*/}\n}"
+		"trigger": "for.count\tsnippet",
+		"contents": "int ${1:i};\nfor(${1:i} = 0 ; ${1:i} < ${2:Iterations} ; ${1:i}++)\n{\n\t${0:// Code}\n}"
 		},
 		{
-		"trigger": "switch",
-		"contents": "switch(${1:/*Variable Name*/})\n{\n\tcase 0:\n\t\t${0:/*Code*/}\n\t\tbreak;\n\n\tdefault:\n\t\tbreak;\n}"
+		"trigger": "switch\tsnippet",
+		"contents": "switch(${1:VarName})\n{\n\tcase 0:\n\t\t${0:// Code}\n\t\tbreak;\n\n\tdefault:\n\t\tbreak;\n}"
 		},
 		{
-		"trigger": "if",
-		"contents": "if(${1:/*Condition*/})\n{\n\t${0:/*Code*/}\n}"
+		"trigger": "if\tsnippet",
+		"contents": "if(${1:Condition})\n{\n\t${0:// Code}\n}"
 		},
 		{
-		"trigger": "else",
-		"contents": "else\n{\n\t${0:/*Code*/}\n}"
+		"trigger": "else\tsnippet",
+		"contents": "else\n{\n\t${0:// Code}\n}"
 		},
 		{
-		"trigger": "if.inline",
-		"contents": "if(${1:/*Condition*/})\n\t${0:/*Code*/}"
+		"trigger": "if.inline\tsnippet",
+		"contents": "if(${1:Condition})\n\t${0:// Code}"
 		},
 		{
-		"trigger": "if.else",
-		"contents": "if(${1:/*Condition*/})\n{\n\t${0:/*Code*/}\n}\nelse\n{\n\t${0:/*Code*/}\n}"
+		"trigger": "if.else\tsnippet",
+		"contents": "if(${1:Condition})\n{\n\t${0:// Code}\n}\nelse\n{\n\t${0:// Code}\n}"
 		},
 		{
-		"trigger": "do",
-		"contents": "do\n{\n\t${0:/*Code*/}\n}while(${1:/*Condition*/});"
+		"trigger": "do\tsnippet",
+		"contents": "do\n{\n\t${0:// Code}\n}while(${1:Condition});"
 		},
 		{
 		"trigger": "main\tMain function",
-		"contents": "void main(${1:/*Args*/})\n{\n\t${0:/*Code*/}\n}"
+		"contents": "void main(${1:Args})\n{\n\t${0:// Code}\n}"
 		},
 		{
 		"trigger": "StartingConditional\tMain function",
-		"contents": "int StartingConditional(${1:/*Args*/})\n{\n\t${0:/*Code*/}\n\treturn FALSE;\n}"
+		"contents": "int StartingConditional(${1:Args})\n{\n\t${0:// Code}\n\treturn FALSE;\n}"
 		},
 		{
 		"trigger": "its\tIntToString()",
-		"contents": "IntToString(${1:/*int*/})"
+		"contents": "IntToString(${1:nValue})"
 		},
 		{
 		"trigger": "fts\tFloatToString()",
-		"contents": "FloatToString(${1:/*float*/})"
+		"contents": "FloatToString(${1:fValue})"
+		},
+		{
+		"trigger": "#include",
+		"contents": "#include \"${1}\""
+		},
+		{
+		"trigger": "#define",
+		"contents": "#define ${1:NAME} ${2:VALUE}"
 		}
 	]
 }
