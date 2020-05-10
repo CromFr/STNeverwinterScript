@@ -368,7 +368,10 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                     doc = Documentation()
                     doc.signature = (fun_type, fun_name, fun_args)
                     doc.script_resref = resref
-                    doc.fix = get_doc_fix(resref, fun_name)
+                    doc.fix = self.settings.get("doc_fixes").get(resref, {}).get(fun_name, None)
+                    if doc.fix is None:
+                        doc.fix = get_doc_fix(resref, fun_name)
+
                     doc.text = fun_doc if fun_doc != "" and not fun_args.isspace() else None
                     compl.documentation.append(doc)
                 else:
