@@ -168,7 +168,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
         self.show_doc_popup_for(
             view,
-            resref=self.get_resref(view.file_name()),
+            resref=self.get_resref(file_path),
             symbol=symbol,
         )
 
