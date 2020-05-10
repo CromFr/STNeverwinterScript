@@ -2,6 +2,7 @@ import sublime
 import sublime_plugin
 import os
 import re
+import time
 import threading
 from .nwscript_doc_fixes import get_doc_fix
 
@@ -74,9 +75,8 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if (view.substr(position) != '.'):
             position = locations[0]
 
-        file_path = view.file_name()
+        module_path, file_path = self.get_opened_file_paths(view)
         file_data = view.substr(sublime.Region(0, view.size()))
-        module_path = os.path.dirname(file_path)
 
         self.parse_script_tree(module_path, file_path, file_data)
 
@@ -101,9 +101,8 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if self.settings.get("enable_doc_popup") is False:
             return
 
-        file_path = view.file_name()
+        module_path, file_path = self.get_opened_file_paths(view)
         file_data = view.substr(sublime.Region(0, view.size()))
-        module_path = os.path.dirname(file_path)
 
         if self.settings.get("parse_on_modified") is True:
             self.parse_script_tree(module_path, file_path, file_data)
@@ -135,16 +134,30 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if view.substr(selection) != symbol:
             return
 
-        file_path = view.file_name()
-        module_path = os.path.dirname(file_path)
+        module_path, file_path = self.get_opened_file_paths(view)
+        file_data = view.substr(sublime.Region(0, view.size()))
 
-        self.parse_script_tree(module_path, file_path, view.substr(sublime.Region(0, view.size())))
+        self.parse_script_tree(module_path, file_path, file_data)
 
         self.show_doc_popup_for(
             view,
             resref=self.get_resref(view.file_name()),
             symbol=symbol,
         )
+
+    @staticmethod
+    def get_opened_file_paths(view: sublime.View) -> (str, str):
+        file_path = view.file_name()
+        module_path = None
+        if file_path is None:
+            file_path = "__unsaved_%d.nss" % view.id()
+            opened_folders = view.window().folders()
+            if len(opened_folders) > 0:
+                module_path = opened_folders[0]
+        else:
+            module_path = os.path.dirname(file_path)
+
+        return (module_path, file_path)
 
 
     @staticmethod
@@ -212,6 +225,11 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
     # Search through include dirs and module path to find a file matching resref
     def find_file_by_resref(self, module_path: str, resref: str) -> str:
+        path_list = []
+        if module_path is not None:
+            path_list.append(module_path)
+        path_list.extend(self.settings.get("include_path"))
+
         path_list = [module_path] + self.settings.get("include_path")
         for path in path_list:
             file = os.path.join(path, resref + ".nss")
@@ -238,11 +256,11 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if "nwscript" not in self.symbol_completions:
             self.parse_script(self.find_file_by_resref(module_path, "nwscript"))
 
-        def recurr_parse(file):
+        def recurr_parse(file, do_not_parse=False):
             resref = self.get_resref(file)
             compl = self.symbol_completions.get(resref, None)
 
-            if compl is None or os.path.getmtime(file) > compl.mtime:
+            if do_not_parse is False and (compl is None or os.path.getmtime(file) > compl.mtime):
                 resref, compl = self.parse_script(file)
 
             for dep in compl.dependencies:
@@ -256,17 +274,20 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         explored_resrefs.add(start_resref)
         if file_data is not None:
             self.parse_script(file_path, file_data)
-        recurr_parse(file_path)
+        recurr_parse(file_path, do_not_parse=True)
 
 
     # Parse a single script and extract completion info
     def parse_script(self, file_path: str, file_data: str = None) -> None:
         if file_data is None:
             file_data = open(file_path, encoding="utf-8", errors="ignore").read()
+            file_mtime = os.path.getmtime(file_path)
+        else:
+            file_mtime = time.time()
 
         compl = SymbolCompletions()
         compl.file = file_path
-        compl.mtime = os.path.getmtime(file_path)
+        compl.mtime = file_mtime
         compl.dependencies = self.rgx_include.findall(file_data)
         compl.completions = []
         compl.documentation = []
@@ -352,12 +373,17 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         def worker():
             print("nwscript-completion: Parsing include completions")
             self.include_completions = set()
-            for folder in [module_path] + self.settings.get("include_path"):
-                for filename in os.listdir(folder):
-                    ext = os.path.splitext(filename)[1].lower()
-                    if ext != ".nss":
+
+            path_list = []
+            if module_path is not None:
+                path_list.append(module_path)
+            path_list.extend(self.settings.get("include_path"))
+
+            for folder in path_list:
+                for file_name in os.listdir(folder):
+                    if os.path.splitext(file_name)[1].lower() != ".nss":
                         continue
-                    file_path = os.path.join(folder, filename)
+                    file_path = os.path.join(folder, file_name)
                     if not os.path.isfile(file_path):
                         continue
 
@@ -367,7 +393,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                         has_main = self.rgx_main.search(data) is not None
 
                         if not has_main:
-                            self.include_completions.add(os.path.splitext(filename)[0])
+                            self.include_completions.add(os.path.splitext(file_name)[0])
 
             sublime.active_window().status_message("Building #include completions... Done !")
 
