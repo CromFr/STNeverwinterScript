@@ -78,7 +78,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         module_path, file_path = self.get_opened_file_paths(view)
         file_data = view.substr(sublime.Region(0, view.size()))
 
-        self.parse_script_tree(module_path, file_path, file_data)
+        include_errors = self.parse_script_tree(module_path, file_path, file_data)
 
         # Handle #include completions
         row, col = view.rowcol(position)
@@ -88,6 +88,15 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             return (
                 self.get_include_completions(module_path),
                 sublime.INHIBIT_WORD_COMPLETIONS | sublime.INHIBIT_EXPLICIT_COMPLETIONS
+            )
+
+        # Show include error if looking for symbol completions
+        if len(include_errors) > 0 and self.settings.get("enable_missing_include_popup") is True:
+            text = "<br>".join(include_errors)
+            sublime.active_window().active_view().show_popup(
+                '<html style="background-color: color(var(--background) blend(red 75%));"><p>' + text + '</p></html>',
+                max_width=600,
+                flags=sublime.COOPERATE_WITH_AUTO_COMPLETE,
             )
 
         # Handle symbol completions
@@ -215,7 +224,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             ret.extend(compl.completions)
 
             for dep in compl.dependencies:
-                if dep not in explored_resrefs:
+                if dep not in explored_resrefs and dep in self.symbol_completions:
                     explored_resrefs.add(dep)
                     recurr_gather_symbol_completions(dep)
 
@@ -246,7 +255,8 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
 
     # Parse a script and its dependencies if they have been modified since last call
-    def parse_script_tree(self, module_path: str, file_path: str, file_data: str = None) -> None:
+    # Returns a list of include errors
+    def parse_script_tree(self, module_path: str, file_path: str, file_data: str = None) -> []:
         if self.symbol_completions is None:
             self.symbol_completions = {}
         if self.include_completions is None:
@@ -255,6 +265,8 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         explored_resrefs = set("nwscript")
         if "nwscript" not in self.symbol_completions:
             self.parse_script(self.find_file_by_resref(module_path, "nwscript"))
+
+        include_errors = []
 
         def recurr_parse(file, do_not_parse=False):
             resref = self.get_resref(file)
@@ -266,15 +278,21 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             for dep in compl.dependencies:
                 if dep not in explored_resrefs:
                     explored_resrefs.add(dep)
-                    dep_resref = self.find_file_by_resref(module_path, dep)
-                    if dep_resref is not None:
-                        recurr_parse(dep_resref)
+                    dep_file = self.find_file_by_resref(module_path, dep)
+                    if dep_file is not None:
+                        recurr_parse(dep_file)
+                    else:
+                        include_errors.append("Cannot find script '%s' (included in '%s')" % (dep, resref))
 
         start_resref = self.get_resref(file_path)
         explored_resrefs.add(start_resref)
         if file_data is not None:
             self.parse_script(file_path, file_data)
-        recurr_parse(file_path, do_not_parse=True)
+            recurr_parse(file_path, do_not_parse=True)
+        else:
+            recurr_parse(file_path)
+
+        return include_errors
 
 
     # Parse a single script and extract completion info
