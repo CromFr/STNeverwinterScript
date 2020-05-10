@@ -24,36 +24,54 @@ class Documentation:
     def format_popup(self):
 
         fix_html = ""
+        fix_color = None
         if self.fix is not None:
-            color = {
+            fix_color = {
                 "Broken": "#f00",
                 "Warning": "#ff0",
                 "Note": "#888",
             }.get(self.fix[0], "#fff")
 
             fix_html = """
-                <div style="border-left: 0.5em solid {color}; padding-left: 1em">
-                    <h3 style="color: {color}">{severity}</h3>
-                    <p>{text}</p>
+                <div style="border-left: 0.5em solid {color}; padding-left: 0.5em">
+                    <p>
+                        <strong style="color: {color}">{severity}</strong><br>
+                        {text}
+                    </p>
                 </div>
-            """.format(severity=self.fix[0], color=color, text=self.fix[1])
+            """.format(
+                severity=self.fix[0],
+                color="color(var(--foreground) blend(%s 25%%))" % fix_color,
+                text=self.fix[1]
+            )
 
         text_html = "<br>".join([line[2:] for line in self.text.splitlines()]) if self.text is not None else ""
         location = "defined in " + self.script_resref if self.script_resref != "nwscript" else "built-in function"
 
         args_list = self.signature[2].split(", ")
-        args_html = "<br>\t" + ",<br>\t".join(args_list) + "<br>" if len(args_list) > 3 else self.signature[2]
+        if len(self.signature[0]) + len(self.signature[1]) + len(self.signature[2]) + 3 > 80:
+            args_html = "<br>\t" + ",<br>\t".join(args_list) + "<br>"
+        else:
+            args_html = self.signature[2]
+        # args_html = "<br>\t" + ",<br>\t".join(args_list) + "<br>" if len(args_list) > 3 else self.signature[2]
 
         return """
-        <body style="padding: 0.3em">
-            <div style="padding: 0.5em;">
+        <html style="padding: 0"><body style="margin: 0">
+            <div style="background-color: color(var(--foreground) {fix_color} alpha(0.07)); padding: 0.5em;">
                 {self.signature[0]} <strong>{self.signature[1]}</strong>({args_html})
                 <div style="padding-left: 1em; color: color(var(--foreground) alpha(0.5));"><em>{location}</em></div>
             </div>
             {fix_html}
-            <p>{text_html}</p>
-        </body>
-        """.format(self=self, fix_html=fix_html, text_html=text_html, location=location, args_html=args_html)
+            <p style="padding: 0 0.5em">{text_html}</p>
+        </body></body>
+        """.format(
+            self=self,
+            fix_html=fix_html,
+            fix_color="blend(%s 25%%)" % fix_color if fix_color is not None else "",
+            text_html=text_html,
+            location=location,
+            args_html=args_html,
+        )
 
 
 class NWScriptCompletion(sublime_plugin.EventListener):
@@ -178,7 +196,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if doc is not None:
             view.show_popup(
                 doc.format_popup(),
-                location=-1, max_width=600, flags=sublime.COOPERATE_WITH_AUTO_COMPLETE
+                location=-1, max_width=view.em_width() * 80, flags=sublime.COOPERATE_WITH_AUTO_COMPLETE
             )
             return True
         return False
