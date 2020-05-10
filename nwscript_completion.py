@@ -53,7 +53,6 @@ class Documentation:
             args_html = "<br>\t" + ",<br>\t".join(args_list) + "<br>"
         else:
             args_html = self.signature[2]
-        # args_html = "<br>\t" + ",<br>\t".join(args_list) + "<br>" if len(args_list) > 3 else self.signature[2]
 
         return """
         <html style="padding: 0"><body style="margin: 0">
@@ -199,6 +198,9 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                 location=-1, max_width=view.em_width() * 80, flags=sublime.COOPERATE_WITH_AUTO_COMPLETE
             )
             return True
+
+        if view.is_popup_visible():
+            view.hide_popup()
         return False
 
     def get_documentation(self, resref: str, symbol: str) -> Documentation:
