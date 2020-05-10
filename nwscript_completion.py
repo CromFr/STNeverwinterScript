@@ -63,7 +63,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
     # script resref => SymbolCompletions
     symbol_completions = None
 
-    # Set of include-only files
+    # directory => set() of include-only files
     include_completions = None
 
     def on_query_completions(self, view: sublime.View, prefix: str, locations: (str, str, (int, int))) -> list:
@@ -373,35 +373,42 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
         # update include completions
         if self.include_completions is not None:
-            if has_main:
-                self.include_completions.add(resref)
-            else:
-                self.include_completions.discard(resref)
+            file_dir = os.path.dirname(file_path)
+            if file_dir in self.include_completions:
+                if has_main:
+                    self.include_completions[file_dir].add(resref)
+                else:
+                    self.include_completions[file_dir].discard(resref)
 
         self.symbol_completions[resref] = compl
         return (resref, compl)
 
 
     def init_include_list(self, module_path):
-        if self.include_completions is not None:
+        if self.include_completions is not None and module_path in self.include_completions:
             return
 
         sublime.active_window().status_message("Building #include completions...")
 
         def worker():
-            print("nwscript-completion: Parsing include completions")
-            self.include_completions = set()
+            self.include_completions = {}
 
             path_list = []
             if module_path is not None:
                 path_list.append(module_path)
             path_list.extend(self.settings.get("include_path"))
 
-            for folder in path_list:
-                for file_name in os.listdir(folder):
+            for dir_path in path_list:
+                # Don't go through already parsed folders
+                if dir_path in self.include_completions:
+                    continue
+
+                self.include_completions[dir_path] = set()
+
+                for file_name in os.listdir(dir_path):
                     if os.path.splitext(file_name)[1].lower() != ".nss":
                         continue
-                    file_path = os.path.join(folder, file_name)
+                    file_path = os.path.join(dir_path, file_name)
                     if not os.path.isfile(file_path):
                         continue
 
@@ -411,7 +418,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                         has_main = self.rgx_main.search(data) is not None
 
                         if not has_main:
-                            self.include_completions.add(os.path.splitext(file_name)[0])
+                            self.include_completions[dir_path].add(os.path.splitext(file_name)[0])
 
             sublime.active_window().status_message("Building #include completions... Done !")
 
@@ -422,7 +429,22 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
     def get_include_completions(self, module_path):
         self.init_include_list(module_path)
-        return [[resref + "\tscript", resref] for resref in self.include_completions]
+
+        path_list = []
+        if module_path is not None:
+            path_list.append(module_path)
+        path_list.extend(self.settings.get("include_path"))
+
+        ret = []
+        for path in path_list:
+            mark = "⋄" if path is module_path else ""
+            if path in self.include_completions:
+                ret.extend([
+                    ["%s\t%sscript" % (resref, mark), resref]
+                    for resref in self.include_completions[path]
+                    if resref != "nwscript"
+                ])
+        return ret
 
 
     nwn_types = r'(void|string|int|float|object|vector|location|effect|event|talent|itemproperty|action|struct\s+\w+)'
