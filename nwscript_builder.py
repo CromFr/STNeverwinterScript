@@ -34,7 +34,7 @@ class DirCache:
 
 
 class nwscript_builder(sublime_plugin.WindowCommand):
-    settings = sublime.load_settings('nwscript.sublime-settings')
+    settings = None
 
     panel = None
     panel_lock = threading.Lock()
@@ -82,6 +82,11 @@ class nwscript_builder(sublime_plugin.WindowCommand):
             args=(working_dir, build_all)
         ).start()
 
+    def get_settings(self, key: str):
+        if self.settings is None:
+            self.settings = sublime.load_settings('nwscript.sublime-settings')
+        return self.settings.get(key)
+
     # Main build function
     def run_build(self, working_dir: str, build_all: bool):
         # Stop currently running processes
@@ -106,7 +111,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
             # Fix scrolling issue
             self.panel.set_viewport_position((0, 0))
 
-            # Build / update script list
+            # Update script list
             self.update_script_list(working_dir)
 
             # Get modified script + scripts using them
@@ -191,7 +196,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
                     # Parse NCS file to know if it should have an associated NSS file
                     with open(os.path.join(workdir, script.ncs), "rb") as file:
                         header = file.read(0x3f)
-                        if len(header) == 0x3f and header[0x1B : 0x3f] == b"NWScript Platform Native Script v1.0":
+                        if len(header) == 0x3f and header[0x1B: 0x3f] == b"NWScript Platform Native Script v1.0":
                             script.ncs_is_native = True
                         else:
                             self.write_build_results("Note: script %s has no source file\n" % script_name)
@@ -313,8 +318,8 @@ class nwscript_builder(sublime_plugin.WindowCommand):
     # Compile many files by spreading them across multiple compiler processes
     def compile_files(self, working_dir, script_list: list):
         # Get compiler config
-        compiler_cmd = self.settings.get("compiler_cmd")
-        include_path = self.settings.get("include_path")
+        compiler_cmd = self.get_settings("compiler_cmd")
+        include_path = self.get_settings("include_path")
         include_args = []
         for inc in include_path:
             include_args.extend(["-i", inc])

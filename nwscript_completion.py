@@ -75,7 +75,7 @@ class Documentation:
 
 class NWScriptCompletion(sublime_plugin.EventListener):
 
-    settings = sublime.load_settings('nwscript.sublime-settings')
+    settings = None
 
     # script resref => SymbolCompletions
     symbol_completions = None
@@ -108,7 +108,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             )
 
         # Show include error if looking for symbol completions
-        if len(include_errors) > 0 and self.settings.get("enable_missing_include_popup") is True:
+        if len(include_errors) > 0 and self.get_settings("enable_missing_include_popup") is True:
             text = "<br>".join(include_errors)
             sublime.active_window().active_view().show_popup(
                 '<html style="background-color: color(var(--background) blend(red 75%));"><p>' + text + '</p></html>',
@@ -124,13 +124,13 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if not view.scope_name(point).startswith("source.nss"):
             return
 
-        if self.settings.get("enable_doc_popup") is False:
+        if self.get_settings("enable_doc_popup") is False:
             return
 
         module_path, file_path = self.get_opened_file_paths(view)
         file_data = view.substr(sublime.Region(0, view.size()))
 
-        if self.settings.get("parse_on_modified") is True:
+        if self.get_settings("parse_on_modified") is True:
             self.parse_script_tree(module_path, file_path, file_data)
 
         if view.substr(point) in ['(', ')'] or point != view.sel()[0].end():
@@ -148,7 +148,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if not view.scope_name(point).startswith("source.nss"):
             return
 
-        if self.settings.get("enable_doc_popup") is False:
+        if self.get_settings("enable_doc_popup") is False:
             return
 
         # Ignore hover over non selected text
@@ -170,6 +170,11 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             resref=self.get_resref(file_path),
             symbol=symbol,
         )
+
+    def get_settings(self, key: str):
+        if self.settings is None:
+            self.settings = sublime.load_settings('nwscript.sublime-settings')
+        return self.settings.get(key)
 
     @staticmethod
     def get_opened_file_paths(view: sublime.View) -> (str, str):
@@ -257,9 +262,8 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         path_list = []
         if module_path is not None:
             path_list.append(module_path)
-        path_list.extend(self.settings.get("include_path"))
+        path_list.extend(self.get_settings("include_path"))
 
-        path_list = [module_path] + self.settings.get("include_path")
         for path in path_list:
             file = os.path.join(path, resref + ".nss")
             if os.path.isfile(file):
@@ -370,7 +374,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                     doc = Documentation()
                     doc.signature = (fun_type, fun_name, fun_args)
                     doc.script_resref = resref
-                    doc.fix = self.settings.get("doc_fixes").get(resref, {}).get(fun_name, None)
+                    doc.fix = self.get_settings("doc_fixes").get(resref, {}).get(fun_name, None)
                     if doc.fix is None:
                         doc.fix = get_doc_fix(resref, fun_name)
 
@@ -419,7 +423,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             path_list = []
             if module_path is not None:
                 path_list.append(module_path)
-            path_list.extend(self.settings.get("include_path"))
+            path_list.extend(self.get_settings("include_path"))
 
             for dir_path in path_list:
                 # Don't go through already parsed folders
@@ -456,7 +460,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         path_list = []
         if module_path is not None:
             path_list.append(module_path)
-        path_list.extend(self.settings.get("include_path"))
+        path_list.extend(self.get_settings("include_path"))
 
         ret = []
         for path in path_list:
