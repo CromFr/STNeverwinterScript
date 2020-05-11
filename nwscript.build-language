@@ -30,7 +30,7 @@
 				</dict>
 			</dict>
 			<key>match</key>
-			<string>^\s*+([^\(]+)\(([0-9]+)\): (Error): .*?$</string>
+			<string>^(?:\s*+([^\(]+)\(([0-9]+)\): )?(Error): .*?$</string>
 		</dict>
 		<dict>
 			<key>captures</key>
@@ -52,7 +52,7 @@
 				</dict>
 			</dict>
 			<key>match</key>
-			<string>^\s*+([^\(]+)\(([0-9]+)\): (Warning): .*?$</string>
+			<string>^(?:\s*+([^\(]+)\(([0-9]+)\): )?(Warning): .*?$</string>
 		</dict>
 	</array>
 	<key>scopeName</key>

@@ -13,7 +13,7 @@ class Script:
     nss = None
     ncs = None
 
-    has_main = True
+    is_library = False
     dependencies = None
 
     # Cached mtime values to prevent excessive IO requests
@@ -25,12 +25,6 @@ class Script:
 class DirCache:
     # script name => Script object
     scripts = {}
-
-    # script_name => set(scripts depending on script_name)
-    reversed_deps = {}
-
-    # Last build time
-    last_build = 0.0
 
 
 class nwscript_builder(sublime_plugin.WindowCommand):
@@ -104,9 +98,6 @@ class nwscript_builder(sublime_plugin.WindowCommand):
             # Get / create cache if needed
             dircache = self.cache.setdefault(working_dir, DirCache())
 
-            # Save current time (dircache.last_build will be updated once build is finished)
-            curr_build = time.time()
-
             self.write_build_results("Parsing scripts in %s...\n" % working_dir)
             # Fix scrolling issue
             self.panel.set_viewport_position((0, 0))
@@ -124,12 +115,8 @@ class nwscript_builder(sublime_plugin.WindowCommand):
                 self.write_build_results("No scripts needs to be compiled\n")
                 return
 
-            self.write_build_results("%d scripts will be compiled: " % len(scripts_to_build))
-            if len(scripts_to_build) < 100:
-                self.write_build_results(", ".join(scripts_to_build) + "\n")
-            else:
-                self.write_build_results(", ".join(scripts_to_build[0:100]) + " and more... \n")
-            self.write_build_results("-" * 80 + "\n")
+            self.write_build_results("=> %d scripts will be compiled\n" % len(scripts_to_build))
+            self.write_build_results(" Starting compilation ".center(80, "=") + "\n")
 
             # Source files to compile
             src_to_build = [dircache.scripts[sn].nss for sn in scripts_to_build]
@@ -142,9 +129,6 @@ class nwscript_builder(sublime_plugin.WindowCommand):
             perf_build_end = time.time()
             perf_build_duration = perf_build_end - perf_build_start
 
-            if not self.stop_build:
-                dircache.last_build = curr_build
-
             # Update NCS mtimes
             for sn in scripts_to_build:
                 if dircache.scripts[sn].ncs is not None:
@@ -153,7 +137,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
             # Statz
             time.sleep(0.5)
-            self.write_build_results("-" * 80 + "\n")
+            self.write_build_results(" Compilation ended ".center(80, "=") + "\n")
             if status == 0:
                 self.write_build_results(
                     "Finished smart build in %.1f seconds with no errors\n" % perf_build_duration
@@ -164,8 +148,10 @@ class nwscript_builder(sublime_plugin.WindowCommand):
                 )
 
     # List all scripts in workdir and update information in self.cache[workdir]
-    def update_script_list(self, workdir: str):
+    def update_script_list(self, workdir: str) -> None:
         dircache = self.cache.setdefault(workdir, DirCache())
+        found_nss = set()
+        found_ncs = set()
 
         # Find all scripts in workdir
         for filename in os.listdir(workdir):
@@ -176,125 +162,133 @@ class nwscript_builder(sublime_plugin.WindowCommand):
                     continue
 
                 script_name = os.path.splitext(filename)[0].lower()
-
                 script = dircache.scripts.setdefault(script_name, Script())
+                mtime = os.path.getmtime(filepath)
 
                 if ext == ".nss":
-                    script.nss_mtime = os.path.getmtime(filepath)
-                    if script.nss is None or script.nss_mtime > dircache.last_build:
+                    if script.nss is None or mtime > script.nss_mtime:
                         # Script is unknown or has been modified, parse it
-                        (script.has_main, script.dependencies) = self.parse_script(filepath)
+                        (script.is_library, script.dependencies) = self.parse_script(filepath)
                     script.nss = filename
+                    script.nss_mtime = mtime
+                    found_nss.add(script_name)
                 else:
                     script.ncs = filename
+                    script.ncs_mtime = mtime
+                    found_ncs.add(script_name)
 
-        # Update reversed dependency graph
-        dircache.reversed_deps = {}
+        # Remove deleted files from cache
+        to_be_removed = set()
+        for script_name in dircache.scripts:
+            if script_name not in found_nss:
+                dircache.scripts[script_name].nss = None
+            if script_name not in found_ncs:
+                dircache.scripts[script_name].ncs = None
+            if dircache.scripts[script_name].nss is None and dircache.scripts[script_name].ncs is None:
+                to_be_removed.add(script_name)
+                print("Removed script ", script_name, "from cache")
+        [dircache.scripts.pop(sn) for sn in to_be_removed]
+
+        # Find scripts with missing source files
+        no_source_scripts = []
         for script_name, script in dircache.scripts.items():
             if script.nss is None:
                 if script.ncs_is_native is None:
                     # Parse NCS file to know if it should have an associated NSS file
-                    with open(os.path.join(workdir, script.ncs), "rb") as file:
-                        header = file.read(0x3f)
-                        if len(header) == 0x3f and header[0x1B: 0x3f] == b"NWScript Platform Native Script v1.0":
-                            script.ncs_is_native = True
-                        else:
-                            self.write_build_results("Note: script %s has no source file\n" % script_name)
-                            script.ncs_is_native = False
+                    script.ncs_is_native = self.parse_ncs(os.path.join(workdir, script.ncs))
 
-            else:
-                for dep in script.dependencies:
-                    dircache.reversed_deps.setdefault(dep, set()).add(script_name)
+                if script.ncs_is_native is False:
+                    no_source_scripts.append(script_name)
+
+        if len(no_source_scripts) > 0:
+            self.write_build_results(
+                "Warning: The following scripts have missing source files: %s\n"
+                % self.script_list_to_str(no_source_scripts)
+            )
+
 
     # Go through self.cache[workdir].scripts to extract all scripts that needs to be built based on
     # modification times of NSS vs NCS
-    def get_unbuilt_scripts(self, workdir: str):
+    def get_unbuilt_scripts(self, workdir: str) -> set:
         dircache = self.cache[workdir]
 
-        # Cached mtimes calculated by taking the oldest value from all dependencies
-        include_ncs_mtimes = {}
-        def get_ncs_mtime(script_name) -> float:
-            script = dircache.scripts[script_name]
-            if script.ncs_mtime is None:
-                ncs = os.path.join(workdir, script.ncs)
-                script.ncs_mtime = os.path.getmtime(ncs)
-            return dircache.scripts[script_name].ncs_mtime
+        # Utility function to check if a script's dependencies are newer than
+        # its build time, and requires to be re-built
+        cached_nss_mtimes = {}
+        def get_deps_latest_nss_mtime(script_name) -> float:
+            def recurr_get_deps_latest_nss_mtime(curr_script_name, explored_scripts) -> float:
+                if curr_script_name in cached_nss_mtimes:
+                    return cached_nss_mtimes[curr_script_name]
 
-        # Get the oldest NCS mtime for a given script
-        def get_oldest_ncs_mtime_for(script_name, explored=set()) -> float:
-            if script_name not in dircache.scripts:
-                self.write_build_results("Note: %s is not found in current directory\n" % script_name)
-                return time.now()
+                ret = 0.0
+                explored_scripts.add(curr_script_name)
 
-            if dircache.scripts[script_name].has_main:
-                # print(script_name, "has main")
-                if dircache.scripts[script_name].ncs is not None:
-                    # There is an existing NCS file
-                    return get_ncs_mtime(script_name)
+                for dep in dircache.scripts[curr_script_name].dependencies:
+                    if dep in explored_scripts:
+                        continue
+
+                    if dep not in dircache.scripts:
+                        # Dependency is not in the module. Assume the
+                        # dependency is unchanged (it's probably located in
+                        # the compiler include paths)
+                        continue
+
+                    if dircache.scripts[dep].nss_mtime > ret:
+                        ret = dircache.scripts[dep].nss_mtime
+
+                    mtime = recurr_get_deps_latest_nss_mtime(dep, explored_scripts)
+                    if mtime > ret:
+                        ret = mtime
+
+                return ret
+
+            latest = 0.0
+            for dep in dircache.scripts[script_name].dependencies:
+                if dep not in cached_nss_mtimes:
+                    mtime = recurr_get_deps_latest_nss_mtime(script_name, set())
+                    cached_nss_mtimes[dep] = mtime
                 else:
-                    # Missing NCS file, we need to compile it
-                    return 0.0
-            else:
-                # print(script_name, "has no main. dependent scripts:", dircache.reversed_deps.get(script_name, set()))
-                if script_name in include_ncs_mtimes:
-                    return include_ncs_mtimes[script_name]
+                    mtime = cached_nss_mtimes[dep]
 
-                min_mtime = time.time()
-                for sn in dircache.reversed_deps.get(script_name, set()):
-                    if sn not in explored:
-                        explored.add(sn)
-                        mtime = get_oldest_ncs_mtime_for(sn, explored)
-                        if mtime < min_mtime:
-                            min_mtime = mtime
+                if mtime > latest:
+                    latest = mtime
 
-                include_ncs_mtimes[script_name] = min_mtime
-                return min_mtime  # TODO: does not whork when modifying _misc
+            return latest
 
-        # Create a list of scripts that have NCS files (or dependent NCS files) older than the NSS
-        modified_scripts = []
+        scripts_to_build = [set(), set(), set()]
+
+        # Algorithm:
+        # - Go through all known scripts
+        #   - if it's not a library, ie has a main function:
+        #     - if nss mtime > ncs mtime => build it
+        #     - go through all its dependencies
+        #       - if the dependency nss mtime > this script's ncs mtime => build it
+        #   - if it's a library
+        #     - Simply ignore
+        #
         for script_name, script in dircache.scripts.items():
-            if script.nss is None:
-                continue
-
-            if script.has_main:
-                # Script has a main / Startingconditional function
+            if script.nss is not None and not script.is_library:
+                # Script has source code and a main function
                 if script.ncs is None:
-                    modified_scripts.append(script_name)
-                else:
-                    # if os.path.getmtime(nss) > get_ncs_mtime(script_name):
-                    if script.nss_mtime > get_ncs_mtime(script_name):
-                        modified_scripts.append(script_name)
-            else:
-                # Include only file
-                latest_ncs_mtime = get_oldest_ncs_mtime_for(script_name)
+                    # Script has never been built
+                    scripts_to_build[0].add(script_name)
+                elif script.nss_mtime > script.ncs_mtime:
+                    # Script has been modified
+                    scripts_to_build[1].add(script_name)
+                elif get_deps_latest_nss_mtime(script_name) > script.ncs_mtime:
+                    # One of its dependencies have been modified
+                    scripts_to_build[2].add(script_name)
 
-                if script.nss_mtime > latest_ncs_mtime:
-                    modified_scripts.append(script_name)
+        self.write_build_results(
+            "%d scripts with missing NCS: %s\n"
+            % (len(scripts_to_build[0]), self.script_list_to_str(scripts_to_build[0]))
+            + "%d scripts with outdated NCS: %s\n"
+            % (len(scripts_to_build[1]), self.script_list_to_str(scripts_to_build[1]))
+            + "%d scripts impacted by a dependency change: %s\n"
+            % (len(scripts_to_build[2]), self.script_list_to_str(scripts_to_build[2]))
+        )
 
-        self.write_build_results("%d scripts have been modified: " % len(modified_scripts))
-        if len(modified_scripts) < 100:
-            self.write_build_results(", ".join(modified_scripts) + "\n")
-        else:
-            self.write_build_results(", ".join(modified_scripts[0:100]) + " and more... \n")
-
-        # Expand the modified_scripts by adding all dependent scripts
-        scripts_to_build = set()
-        explored_scripts = set()
-        def add(script):
-            if script in explored_scripts:
-                return
-            explored_scripts.add(script)
-
-            if script in dircache.reversed_deps:
-                # Script is an include script, try adding all script using it
-                [add(s) for s in dircache.reversed_deps[script]]
-            else:
-                scripts_to_build.add(script)
-
-        # do the expansion
-        [add(s) for s in modified_scripts]
-
-        return list(scripts_to_build)
+        return scripts_to_build[0] | scripts_to_build[1] | scripts_to_build[2]
 
 
 
@@ -308,12 +302,19 @@ class nwscript_builder(sublime_plugin.WindowCommand):
             data = file.read()
             data = self.rgx_comment.sub("", data)
 
-            has_main = self.rgx_main.search(data) is not None
+            is_library = self.rgx_main.search(data) is None
             includes = [m.lower() for m in self.rgx_include.findall(data)]
 
-            return (has_main, includes)
+            return (is_library, includes)
 
-        return None
+    # Parse a NCS file and return if it is a native script for the NWNScriptAccelerator nwnx4 plugin
+    @staticmethod
+    def parse_ncs(file_path: str) -> bool:
+        with open(file_path, "rb") as file:
+            header = file.read(0x3f)
+            if len(header) == 0x3f and header[0x1B: 0x3f] == b"NWScript Platform Native Script v1.0":
+                return True
+            return False
 
     # Compile many files by spreading them across multiple compiler processes
     def compile_files(self, working_dir, script_list: list):
@@ -429,3 +430,10 @@ class nwscript_builder(sublime_plugin.WindowCommand):
                 break
             except (IOError):
                 break
+
+
+    @staticmethod
+    def script_list_to_str(lst: list):
+        if len(lst) < 100:
+            return ", ".join(lst)
+        return ", ".join(list(lst)[0:100]) + " and more..."
