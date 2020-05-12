@@ -7,19 +7,21 @@ import threading
 from .nwscript_doc_fixes import get_doc_fix
 
 class SymbolCompletions:
-    file = None
-    mtime = None
-    dependencies = []
-    completions = []
+    def __init__(self):
+        self.file = None
+        self.mtime = None
+        self.dependencies = []
+        self.completions = []
 
-    documentation = []
-    symbol_list = {}
+        self.documentation = []
+        self.symbol_list = {}
 
 class Documentation:
-    signature = None  # tuple containing type, name and args
-    script_resref = None
-    fix = None  # (severity, text)
-    text = None
+    def __init__(self):
+        self.signature = None  # tuple containing type, name and args
+        self.script_resref = None
+        self.fix = None  # (severity, text)
+        self.text = None
 
     def format_popup(self):
 
@@ -74,14 +76,15 @@ class Documentation:
 
 
 class NWScriptCompletion(sublime_plugin.EventListener):
+    def __init__(self):
+        super().__init__()
+        self.settings = sublime.load_settings('nwscript.sublime-settings')
 
-    settings = None
+        # script resref => SymbolCompletions
+        self.symbol_completions = {}
 
-    # script resref => SymbolCompletions
-    symbol_completions = None
-
-    # directory => set() of include-only files
-    include_completions = None
+        # directory => set() of include-only files
+        self.include_completions = None
 
     def on_query_completions(self, view: sublime.View, prefix: str, locations: (str, str, (int, int))) -> list:
         if not view.scope_name(locations[0]).startswith("source.nss"):
@@ -172,8 +175,8 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         )
 
     def get_settings(self, key: str):
-        if self.settings is None:
-            self.settings = sublime.load_settings('nwscript.sublime-settings')
+        # if self.settings is None:
+        #     self.settings = sublime.load_settings('nwscript.sublime-settings')
         return self.settings.get(key)
 
     @staticmethod
@@ -281,8 +284,6 @@ class NWScriptCompletion(sublime_plugin.EventListener):
     # Parse a script and its dependencies if they have been modified since last call
     # Returns a list of include errors
     def parse_script_tree(self, module_path: str, file_path: str, file_data: str = None) -> []:
-        if self.symbol_completions is None:
-            self.symbol_completions = {}
         if self.include_completions is None:
             self.init_include_list(module_path)
 
