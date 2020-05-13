@@ -15,10 +15,12 @@ class SymbolCompletions:
         self.mtime = None
         self.dependencies = []
         self.completions = []
-        self.structs = []
 
         self.documentation = []
         self.symbol_list = {}
+
+        self.structs = []
+        self.structs_doc = {}
 
 class Documentation:
     def __init__(self):
@@ -51,31 +53,67 @@ class Documentation:
                 text=self.fix[1]
             )
 
-        text_html = "<br>".join([line[2:] for line in self.text.splitlines()]) if self.text is not None else ""
-        location = "defined in " + self.script_resref if self.script_resref != "nwscript" else "built-in function"
+        symbol_type_name = None
+        signature_html = None
+        if self.signature[0] == "f":
+            # function
+            args_list = self.signature[3].split(", ")
+            if len(self.signature[1]) + len(self.signature[2]) + len(self.signature[3]) + 3 > 80:
+                args_html = "<br>\t" + ",<br>\t".join(args_list) + "<br>"
+            else:
+                args_html = self.signature[3]
 
-        args_list = self.signature[2].split(", ")
-        if len(self.signature[0]) + len(self.signature[1]) + len(self.signature[2]) + 3 > 80:
-            args_html = "<br>\t" + ",<br>\t".join(args_list) + "<br>"
-        else:
-            args_html = self.signature[2]
+            symbol_type_name = "function"
+            signature_html = "%s <strong>%s</strong>(%s)" % (
+                self.signature[1], self.signature[2], args_html
+            )
+
+        elif self.signature[0] == "c":
+            # constant
+            symbol_type_name = "constant"
+            signature_html = "const %s <strong>%s</strong> = %s" % (
+                self.signature[1], self.signature[2], self.signature[3]
+            )
+        elif self.signature[0] == "d":
+            # define
+            symbol_type_name = "define"
+            signature_html = "#define <strong>%s</strong> %s" % (
+                self.signature[1], self.signature[2]
+            )
+        elif self.signature[0] == "s":
+            # struct
+            symbol_type_name = "structure"
+            signature_html = "struct <strong>%s</strong> {...}" % (
+                self.signature[1]
+            )
+
+        text_html = (
+            '<p style="padding: 0 0.5em">%s</p>' % "<br>".join(self.text.splitlines())
+            if self.text is not None
+            else ""
+        )
+        location = (
+            "%s defined in %s" % (symbol_type_name, self.script_resref)
+            if self.script_resref != "nwscript"
+            else "built-in %s" % symbol_type_name
+        )
 
         return """
         <html style="padding: 0"><body style="margin: 0">
             <div style="background-color: color(var(--foreground) {fix_color} alpha(0.07)); padding: 0.5em;">
-                {self.signature[0]} <strong>{self.signature[1]}</strong>({args_html})
+                {signature_html}
                 <div style="padding-left: 1em; color: color(var(--foreground) alpha(0.5));"><em>{location}</em></div>
             </div>
             {fix_html}
-            <p style="padding: 0 0.5em">{text_html}</p>
-        </body></body>
+            {text_html}
+        </body></html>
         """.format(
             self=self,
             fix_html=fix_html,
             fix_color="blend(%s 25%%)" % fix_color if fix_color is not None else "",
             text_html=text_html,
             location=location,
-            args_html=args_html,
+            signature_html=signature_html,
         )
 
 
@@ -240,6 +278,9 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
             if symbol in compl.symbol_list:
                 return compl.documentation[compl.symbol_list[symbol]]
+
+            if symbol in compl.structs_doc:
+                return compl.structs_doc[symbol]
 
             for dep in compl.dependencies:
                 if dep not in explored_resrefs:
@@ -409,13 +450,17 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                     ])
 
                     doc = Documentation()
-                    doc.signature = (fun_type, fun_name, fun_args)
+                    doc.signature = ("f", fun_type, fun_name, fun_args)
                     doc.script_resref = resref
                     doc.fix = self.settings.get("doc_fixes").get(resref, {}).get(fun_name, None)
                     if doc.fix is None:
                         doc.fix = get_doc_fix(resref, fun_name)
 
-                    doc.text = fun_doc if fun_doc != "" and not fun_args.isspace() else None
+                    doc.text = (
+                        "\n".join([line[2:] for line in fun_doc.splitlines()])
+                        if fun_doc != "" and not fun_doc.isspace()
+                        else None
+                    )
                     compl.documentation.append(doc)
                 else:
                     # Set documentation if none
@@ -426,18 +471,36 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
         # const completions
         glob_rgx = self.rgx_global_nwscript if resref == "nwscript" else self.rgx_global_const
-        for (glob_type, glob_name, glob_value) in glob_rgx.findall(file_data):
+        for (glob_type, glob_name, glob_value, glob_doc) in glob_rgx.findall(file_data):
+            compl.symbol_list[glob_name] = len(compl.completions)
             compl.completions.append([glob_name + "\t" + glob_type + "=" + glob_value, glob_name])
-            compl.documentation.append(None)
+            doc = Documentation()
+            doc.signature = ("c", glob_type, glob_name, glob_value)
+            doc.script_resref = resref
+            doc.text = glob_doc
+            compl.documentation.append(doc)
 
         # #define completions
         for (def_name, def_value) in self.rgx_fun_define.findall(file_data):
+            compl.symbol_list[def_name] = len(compl.completions)
             compl.completions.append([def_name + "\t" + def_value, def_name])
-            compl.documentation.append(None)
+            doc = Documentation()
+            doc.signature = ("d", def_name, def_value)
+            doc.script_resref = resref
+            compl.documentation.append(doc)
 
         # struct completions
-        for (struct_name) in self.rgx_struct.findall(file_data):
+        for (struct_doc, struct_name) in self.rgx_struct.findall(file_data):
             compl.structs.append(struct_name)
+            doc = Documentation()
+            doc.signature = ("s", struct_name)
+            doc.script_resref = resref
+            doc.text = (
+                "\n".join([line[2:] for line in struct_doc.splitlines()])
+                if struct_doc != "" and not struct_doc.isspace()
+                else None
+            )
+            compl.structs_doc[struct_name] = doc
 
         # update include completions
         if self.include_completions is not None:
@@ -533,15 +596,15 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         r'^\s*const\s+'
         + nwn_types + r'\s+'
         r'(\w+)'
-        r'\s*=\s*(.+?)\s*;',
+        r'\s*=\s*(.+?)\s*;(?:\s*//\s*(.*?)$)?',
         re.DOTALL | re.MULTILINE)
     rgx_global_nwscript = re.compile(
         r'^\s*' + nwn_types + r'\s+'
         r'(\w+)'
-        r'\s*=\s*(.+?)\s*;',
+        r'\s*=\s*(.+?)\s*;(?:\s*//\s*(.*?)$)?',
         re.DOTALL | re.MULTILINE)
 
-    rgx_struct = re.compile(r'^[ \t]*struct\s+(\w+)\s*\{', re.DOTALL | re.MULTILINE)
+    rgx_struct = re.compile(r'((?:^[ \t]*//[^\n]*?\n)*)^[ \t]*struct\s+(\w+)\s*\{', re.DOTALL | re.MULTILINE)
 
     rgx_fun_define = re.compile(
         r'^\s*#\s*define\s+(\w+)\s+(.+?)\s*$',
