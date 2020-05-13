@@ -6,6 +6,9 @@ import time
 import threading
 from .nwscript_doc_fixes import get_doc_fix
 
+def plugin_loaded():
+    NWScriptCompletion.settings = sublime.load_settings('nwscript.sublime-settings')
+
 class SymbolCompletions:
     def __init__(self):
         self.file = None
@@ -77,9 +80,10 @@ class Documentation:
 
 
 class NWScriptCompletion(sublime_plugin.EventListener):
+    settings = None
+
     def __init__(self):
         super().__init__()
-        self.settings = sublime.load_settings('nwscript.sublime-settings')
 
         # script resref => SymbolCompletions
         self.symbol_completions = {}

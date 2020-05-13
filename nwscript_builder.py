@@ -8,6 +8,9 @@ import os
 import re
 import time
 
+def plugin_loaded():
+    nwscript_builder.settings = sublime.load_settings('nwscript.sublime-settings')
+
 class Script:
     def __init__(self):
         self.nss = None
@@ -29,10 +32,10 @@ class DirCache:
 
 
 class nwscript_builder(sublime_plugin.WindowCommand):
+    settings = None
+
     def __init__(self, window: sublime.Window):
         super().__init__(window)
-
-        self.settings = sublime.load_settings('nwscript.sublime-settings')
 
         self.panel = None
         self.panel_lock = threading.Lock()
