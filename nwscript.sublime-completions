@@ -4,6 +4,12 @@
 	[
 		"OBJECT_SELF",
 		"OBJECT_INVALID",
+		"__FILE__",
+		"__LINE__",
+		"__COUNTER__",
+		"__FUNCTION__",
+		"__NSC_COMPILER_DATE__",
+		"__NSC_COMPILER_TIME__",
 		{
 		"trigger": "while.firstnextvalid\tsnippet",
 		"contents": "${1:object} ${2:oPC} = GetFirst${3:XXX};\nwhile(GetIs${1/^(\\w)/\\u$1/g}Valid(${2:oPC}))\n{\n\t${0:// Code}\n\t${2:oPC} = GetNext${3:XXX};\n}"
