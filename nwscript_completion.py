@@ -507,9 +507,9 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             file_dir = os.path.dirname(file_path)
             if file_dir in self.include_completions:
                 if has_main:
-                    self.include_completions[file_dir].add(resref)
-                else:
                     self.include_completions[file_dir].discard(resref)
+                else:
+                    self.include_completions[file_dir].add(resref)
 
         self.symbol_completions[resref] = compl
         return (resref, compl)
