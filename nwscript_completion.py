@@ -12,6 +12,7 @@ class SymbolCompletions:
         self.mtime = None
         self.dependencies = []
         self.completions = []
+        self.structs = []
 
         self.documentation = []
         self.symbol_list = {}
@@ -110,8 +111,16 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                 sublime.INHIBIT_WORD_COMPLETIONS | sublime.INHIBIT_EXPLICIT_COMPLETIONS
             )
 
+        # Struct completion
+        prev_word = self.get_previous_word(view, position)
+        if prev_word is not None and view.substr(prev_word) == "struct":
+            return (
+                self.gather_struct_completions(self.get_resref(file_path)),
+                sublime.INHIBIT_WORD_COMPLETIONS | sublime.INHIBIT_EXPLICIT_COMPLETIONS
+            )
+
         # Show include error if looking for symbol completions
-        if len(include_errors) > 0 and self.get_settings("enable_missing_include_popup") is True:
+        if len(include_errors) > 0 and self.settings.get("enable_missing_include_popup") is True:
             text = "<br>".join(include_errors)
             sublime.active_window().active_view().show_popup(
                 '<html style="background-color: color(var(--background) blend(red 75%));"><p>' + text + '</p></html>',
@@ -127,13 +136,13 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if not view.scope_name(point).startswith("source.nss"):
             return
 
-        if self.get_settings("enable_doc_popup") is False:
+        if self.settings.get("enable_doc_popup") is False:
             return
 
         module_path, file_path = self.get_opened_file_paths(view)
         file_data = view.substr(sublime.Region(0, view.size()))
 
-        if self.get_settings("parse_on_modified") is True:
+        if self.settings.get("parse_on_modified") is True:
             self.parse_script_tree(module_path, file_path, file_data)
 
         if view.substr(point) in ['(', ')'] or point != view.sel()[0].end():
@@ -151,7 +160,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if not view.scope_name(point).startswith("source.nss"):
             return
 
-        if self.get_settings("enable_doc_popup") is False:
+        if self.settings.get("enable_doc_popup") is False:
             return
 
         # Ignore hover over non selected text
@@ -174,10 +183,6 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             symbol=symbol,
         )
 
-    def get_settings(self, key: str):
-        # if self.settings is None:
-        #     self.settings = sublime.load_settings('nwscript.sublime-settings')
-        return self.settings.get(key)
 
     @staticmethod
     def get_opened_file_paths(view: sublime.View) -> (str, str):
@@ -197,6 +202,16 @@ class NWScriptCompletion(sublime_plugin.EventListener):
     @staticmethod
     def get_resref(file_path: str) -> str:
         return os.path.splitext(os.path.basename(file_path))[0]
+
+
+    @staticmethod
+    def get_previous_word(view: sublime.View, point) -> sublime.Region:
+        i = view.word(point).begin() - 1
+
+        while i > 0 and view.substr(i).isspace():
+            i -= 1
+
+        return view.word(i)
 
     def show_doc_popup_for(self, view, resref, symbol) -> bool:
         doc = self.get_documentation(resref, symbol)
@@ -260,12 +275,29 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         recurr_gather_symbol_completions(resref)
         return ret
 
+    def gather_struct_completions(self, resref: str) -> list:
+        ret = []
+        explored_resrefs = set()
+
+        def recurr_gather_symbol_completions(curr_resref):
+            compl = self.symbol_completions[curr_resref]
+            ret.extend([["%s\tstruct" % s, s] for s in compl.structs])
+
+            for dep in compl.dependencies:
+                if dep not in explored_resrefs:
+                    explored_resrefs.add(dep)
+                    recurr_gather_symbol_completions(dep)
+
+        explored_resrefs.add(resref)
+        recurr_gather_symbol_completions(resref)
+        return ret
+
     # Search through include dirs and module path to find a file matching resref
     def find_file_by_resref(self, module_path: str, resref: str) -> str:
         path_list = []
         if module_path is not None:
             path_list.append(module_path)
-        path_list.extend(self.get_settings("include_path"))
+        path_list.extend(self.settings.get("include_path"))
 
         for path in path_list:
             file = os.path.join(path, resref + ".nss")
@@ -375,7 +407,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                     doc = Documentation()
                     doc.signature = (fun_type, fun_name, fun_args)
                     doc.script_resref = resref
-                    doc.fix = self.get_settings("doc_fixes").get(resref, {}).get(fun_name, None)
+                    doc.fix = self.settings.get("doc_fixes").get(resref, {}).get(fun_name, None)
                     if doc.fix is None:
                         doc.fix = get_doc_fix(resref, fun_name)
 
@@ -398,6 +430,10 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         for (def_name, def_value) in self.rgx_fun_define.findall(file_data):
             compl.completions.append([def_name + "\t" + def_value, def_name])
             compl.documentation.append(None)
+
+        # struct completions
+        for (struct_name) in self.rgx_struct.findall(file_data):
+            compl.structs.append(struct_name)
 
         # update include completions
         if self.include_completions is not None:
@@ -424,7 +460,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             path_list = []
             if module_path is not None:
                 path_list.append(module_path)
-            path_list.extend(self.get_settings("include_path"))
+            path_list.extend(self.settings.get("include_path"))
 
             for dir_path in path_list:
                 # Don't go through already parsed folders
@@ -461,7 +497,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         path_list = []
         if module_path is not None:
             path_list.append(module_path)
-        path_list.extend(self.get_settings("include_path"))
+        path_list.extend(self.settings.get("include_path"))
 
         ret = []
         for path in path_list:
@@ -500,6 +536,8 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         r'(\w+)'
         r'\s*=\s*(.+?)\s*;',
         re.DOTALL | re.MULTILINE)
+
+    rgx_struct = re.compile(r'^[ \t]*struct\s+(\w+)\s*\{', re.DOTALL | re.MULTILINE)
 
     rgx_fun_define = re.compile(
         r'^\s*#\s*define\s+(\w+)\s+(.+?)\s*$',
