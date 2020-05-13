@@ -13,16 +13,22 @@ def plugin_loaded():
 
 class Script:
     def __init__(self):
+        # File relative paths (mostly for Linux compatibility)
         self.nss = None
         self.ncs = None
 
+        # True if the file has no main function
         self.is_library = False
+
+        # List of script dependencies
         self.dependencies = None
 
-        # Cached mtime values to prevent excessive IO requests
-        self.nss_mtime = None  # Set at the beginning of each build
-        self.ncs_mtime = None  # Set on first run and after each compilation
+        # Modification time of NSS and NCS files
+        self.nss_mtime = None
+        self.ncs_mtime = None
 
+        # Set when there is a missing source file
+        # True if the NCS file is meant to be run by NWNScriptAccelerator nwnx4 plugin
         self.ncs_is_native = None
 
 class DirCache:
@@ -47,6 +53,8 @@ class nwscript_builder(sublime_plugin.WindowCommand):
         # directory => DirCache
         self.cache = {}
         self.cached_include_paths = None
+
+
 
     # Setup build results pane and start run_build in a side thread
     def run(self, build_all=False, **kargs):
@@ -78,11 +86,6 @@ class nwscript_builder(sublime_plugin.WindowCommand):
             target=self.run_build,
             args=(working_dir, build_all)
         ).start()
-
-    def get_settings(self, key: str):
-        # if self.settings is None:
-        #     self.settings = sublime.load_settings('nwscript.sublime-settings')
-        return self.settings.get(key)
 
     # Main build function
     def run_build(self, working_dir: str, build_all: bool):
@@ -118,7 +121,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
                 scripts_to_build = self.get_unbuilt_scripts(working_dir)
 
             if len(scripts_to_build) == 0:
-                self.print_build_results("No scripts needs to be compiled\n")
+                self.print_build_results("=> No scripts needs to be compiled\n")
                 return
 
             self.print_build_results("=> %d scripts will be compiled\n" % len(scripts_to_build))
@@ -135,12 +138,6 @@ class nwscript_builder(sublime_plugin.WindowCommand):
             perf_build_end = time.time()
             perf_build_duration = perf_build_end - perf_build_start
 
-            # Update NCS mtimes
-            for sn in scripts_to_build:
-                if dircache.scripts[sn].ncs is not None:
-                    ncs_path = os.path.join(working_dir, dircache.scripts[sn].ncs)
-                    dircache.scripts[sn].ncs_mtime = os.path.getmtime(ncs_path)
-
             # Statz
             time.sleep(0.5)
             self.print_build_results(" Compilation ended ".center(80, "=") + "\n")
@@ -155,7 +152,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
 
     def init_includes_cache(self) -> None:
-        cache = self.get_settings("include_path")
+        cache = self.settings.get("include_path")
 
         # Check if include list changed
         if self.cached_include_paths == cache:
@@ -298,7 +295,6 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
             return latest
 
-        scripts_to_build = [set(), set(), set()]
 
         # Algorithm:
         # - Go through all known scripts
@@ -309,6 +305,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
         #   - if it's a library
         #     - Simply ignore
         #
+        scripts_to_build = [set(), set(), set()]
         for script_name, script in dircache.scripts.items():
             if script.nss is not None and not script.is_library:
                 # Script has source code and a main function
@@ -335,7 +332,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
     # Search through current dir and include paths to find a given script
     def find_script_by_name(self, working_dir, script_name) -> Script:
-        for folder in [working_dir] + self.get_settings("include_path"):
+        for folder in [working_dir] + self.settings.get("include_path"):
             script = self.cache[folder].scripts.get(script_name, None)
             if script is not None:
                 return script
@@ -343,7 +340,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
 
     rgx_comment = re.compile(r'//.*?$|/\*.*?\*/', re.DOTALL | re.MULTILINE)
-    rgx_include = re.compile(r'^\s*#\s*include\s+"(.+?)(?:\.nss)"', re.MULTILINE)
+    rgx_include = re.compile(r'^\s*#\s*include\s+"(.+?)(?:\.nss)?"', re.MULTILINE)
     rgx_main = re.compile(r'(void|int)\s+(main|StartingConditional)\s*\(.*?\)\s*\{', re.DOTALL)
 
     # Parse a NSS file and extract include list and check if there is a main function
@@ -369,8 +366,8 @@ class nwscript_builder(sublime_plugin.WindowCommand):
     # Compile many files by spreading them across multiple compiler processes
     def compile_files(self, working_dir, script_list: list):
         # Get compiler config
-        compiler_cmd = self.get_settings("compiler_cmd")
-        include_path = self.get_settings("include_path")
+        compiler_cmd = self.settings.get("compiler_cmd")
+        include_path = self.settings.get("include_path")
         include_args = []
         for inc in include_path:
             include_args.extend(["-i", inc])
