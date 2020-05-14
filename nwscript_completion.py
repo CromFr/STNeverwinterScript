@@ -19,7 +19,7 @@ class SymbolCompletions:
         self.documentation = []
         self.symbol_list = {}
 
-        self.structs = []
+        self.structs_completions = []
         self.structs_doc = {}
 
 class Documentation:
@@ -326,7 +326,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
         def recurr_gather_symbol_completions(curr_resref):
             compl = self.symbol_completions[curr_resref]
-            ret.extend([["%s\tstruct" % s, s] for s in compl.structs])
+            ret.extend(compl.structs_completions)
 
             for dep in compl.dependencies:
                 if dep not in explored_resrefs:
@@ -445,7 +445,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                     # Register new symbol
                     compl.symbol_list[fun_name] = len(compl.completions)
                     compl.completions.append([
-                        "%s\t%s()" % (fun_name, custom_mark + fun_type),
+                        "%s\t%s%s()" % (fun_name, custom_mark, fun_type),
                         "%s(%s)" % (fun_name, ", ".join(args_list))
                     ])
 
@@ -473,25 +473,34 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         glob_rgx = self.rgx_global_nwscript if resref == "nwscript" else self.rgx_global_const
         for (glob_type, glob_name, glob_value, glob_doc) in glob_rgx.findall(file_data):
             compl.symbol_list[glob_name] = len(compl.completions)
-            compl.completions.append([glob_name + "\t" + glob_type + "=" + glob_value, glob_name])
+            compl.completions.append(["%s\t%s%s=%s" % (glob_name, custom_mark, glob_type, glob_value), glob_name])
             doc = Documentation()
             doc.signature = ("c", glob_type, glob_name, glob_value)
             doc.script_resref = resref
-            doc.text = glob_doc
+            doc.text = (
+                glob_doc
+                if glob_doc != "" and not glob_doc.isspace()
+                else None
+            )
             compl.documentation.append(doc)
 
         # #define completions
-        for (def_name, def_value) in self.rgx_fun_define.findall(file_data):
+        for (def_doc, def_name, def_value) in self.rgx_define.findall(file_data):
             compl.symbol_list[def_name] = len(compl.completions)
-            compl.completions.append([def_name + "\t" + def_value, def_name])
+            compl.completions.append(["%s\t%s%s" % (def_name, custom_mark, def_value), def_name])
             doc = Documentation()
             doc.signature = ("d", def_name, def_value)
             doc.script_resref = resref
+            doc.text = (
+                "\n".join([line[2:] for line in def_doc.splitlines()])
+                if def_doc != "" and not def_doc.isspace()
+                else None
+            )
             compl.documentation.append(doc)
 
         # struct completions
         for (struct_doc, struct_name) in self.rgx_struct.findall(file_data):
-            compl.structs.append(struct_name)
+            compl.structs_completions.append(["%s\t%sstruct" % (struct_name, custom_mark), struct_name])
             doc = Documentation()
             doc.signature = ("s", struct_name)
             doc.script_resref = resref
@@ -606,7 +615,8 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
     rgx_struct = re.compile(r'((?:^[ \t]*//[^\n]*?\n)*)^[ \t]*struct\s+(\w+)\s*\{', re.DOTALL | re.MULTILINE)
 
-    rgx_fun_define = re.compile(
+    rgx_define = re.compile(
+        r'((?:^[ \t]*//[^\n]*?\n)*)'
         r'^\s*#\s*define\s+(\w+)\s+(.+?)\s*$',
         re.DOTALL | re.MULTILINE)
 
