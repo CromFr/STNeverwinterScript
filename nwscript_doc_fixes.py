@@ -132,5 +132,14 @@ def get_doc_fix(script, symbol) -> str:
             "CreateObject": ("Note", """
                 Does not work for creatures if the location is not walkable (i.e. GetIsLocationValid returns FALSE). You can use CalcSafeLocation to find a good spot for spawning the creature.
                 """),
+            "FloatingTextStringOnCreature": ("Note", """
+                The colors can be specified as hexadecimal values: 0xFFFFFF for white, 0xFF0000 for red, etc.
+                """),
+            "FloatingTextStrRefOnCreature": ("Note", """
+                The colors can be specified as hexadecimal values: 0xFFFFFF for white, 0xFF0000 for red, etc.
+                """),
+            "FadeToBlack": ("Note", """
+                nColor can be specified as hexadecimal value: 0xFFFFFF for white, 0xFF0000 for red, etc.
+                """),
         }
     }.get(script, {}).get(symbol, None)
