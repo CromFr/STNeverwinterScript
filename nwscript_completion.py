@@ -422,27 +422,22 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             if fun_name in ("main", "StartingConditional"):
                 has_main = True
             else:
-                # Parse function arguments
-                args_list = []
-                i = 0
-                if fun_args != "" and not fun_args.isspace():
-                    for arg in fun_args.split(","):
-                        arg_match_obj = self.rgx_fun_arg.search(arg)
-                        if arg_match_obj is None:
-                            print("nwscript-completion: Could not parse argument '%s' in %s.%s" % (
-                                arg, resref, fun_name
-                            ))
-                            arg_match_obj = None
-                        else:
-                            arg_match = arg_match_obj.groups()
-                            default = ""
-                            if arg_match[2] is not None:
-                                default += "=" + arg_match[2]
-                            args_list.append("${%d:%s %s}" % (i + 1, arg_match[0], arg_match[1] + default))
-                        i = i + 1
-
                 if fun_name not in compl.symbol_list:
                     # Register new symbol
+
+                    # Parse function arguments
+                    args_list = []
+                    i = 0
+                    if fun_args != "" and not fun_args.isspace():
+                        for (arg_type, arg_name, arg_value) in self.rgx_fun_arg.findall(fun_args):
+                            default = ""
+                            if arg_value != "" and not arg_value.isspace():
+                                default += "=" + arg_value
+                            args_list.append("${%d:%s %s}" % (i + 1, arg_type, arg_name + default))
+
+                            i += 1
+
+                    # Add completion
                     compl.symbol_list[fun_name] = len(compl.completions)
                     compl.completions.append([
                         "%s\t%s%s()" % (fun_name, custom_mark, fun_type),
@@ -598,7 +593,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
     rgx_fun_arg = re.compile(
         nwn_types + r'\s+'
         r'(\w+)'
-        r'(?:\s*=\s*([-\w\."]+))?',
+        r'(?:\s*=\s*(".*?"|\[.*?\]|[-\w\."]+))?',
         re.DOTALL)
 
     rgx_global_const = re.compile(
