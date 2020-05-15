@@ -1,0 +1,1206 @@
+%YAML 1.2
+---
+# http://www.sublimetext.com/docs/3/syntax.html
+name: NWScript
+file_extensions:
+  - nss
+first_line_match: "-[*]-( Mode:)? NWScript -[*]-"
+scope: source.nss
+
+variables:
+  identifier: \b[[:alpha:]_][[:alnum:]_]*\b # upper and lowercase
+  macro_identifier: \b[[:upper:]_][[:upper:][:digit:]_]{2,}\b # only uppercase, at least 3 chars
+  path_lookahead: '{{identifier}}'
+  operator_method_name: '\boperator\s*(?:[-+*/%^&|~!=<>]|[-+*/%^&|=!<>]=|<<=?|>>=?|&&|\|\||\+\+|--|,|->\*?|\(\)|\[\]|""\s*{{identifier}})'
+  # casts: 'const_cast|dynamic_cast|reinterpret_cast|static_cast'
+  # operator_keywords: 'and|and_eq|bitand|bitor|compl|not|not_eq|or|or_eq|xor|xor_eq|noexcept'
+  control_keywords: 'break|case|continue|default|do|else|for|if|return|switch|while'
+  # memory_operators: 'new|delete'
+  basic_types: 'action|effect|event|float|int|itemproperty|location|object|string|talent|vector|void'
+  before_tag: 'struct'
+  # declspec: '__declspec\(\s*\w+(?:\([^)]+\))?\s*\)'
+  # storage_classes: 'static|export|extern|friend|explicit|virtual|register|thread_local'
+  type_qualifier: 'const'
+  # compiler_directive: 'inline|restrict|__restrict__|__restrict'
+  # visibility_modifiers: 'private|protected|public'
+  # other_keywords: 'typedef|nullptr|{{visibility_modifiers}}|static_assert|sizeof|using|typeid|alignof|alignas|namespace|template'
+  modifiers: '{{type_qualifier}}'
+  non_angle_brackets: '(?=<<|<=)'
+
+  regular: '[^(){}&;*^%=<>-]*'
+  paren_open: (?:\(
+  paren_close: '\))?'
+  generic_open: (?:<
+  generic_close: '>)?'
+  balance_parentheses: '{{regular}}{{paren_open}}{{regular}}{{paren_close}}{{regular}}'
+  generic_lookahead: <{{regular}}{{generic_open}}{{regular}}{{generic_open}}{{regular}}{{generic_close}}\s*{{generic_close}}{{balance_parentheses}}>
+
+  data_structures_forward_decl_lookahead: '(\s+{{macro_identifier}})*\s*(:\s*({{path_lookahead}}|,|\s|<[^;]*>)+)?;'
+  non_func_keywords: 'if|for|switch|while'
+
+contexts:
+  main:
+    - include: preprocessor-global
+    - include: global
+
+  #############################################################################
+  # Reusable contexts
+  #
+  # The follow contexts are currently constructed to be reused in the
+  # Objetive-C++ syntax. They are specifically constructed to not push into
+  # sub-contexts, which ensures that Objective-C++ code isn't accidentally
+  # lexed as plain C++.
+  #
+  # The "unique-*" contexts are additions that C++ makes over C, and thus can
+  # be directly reused in Objective-C++ along with contexts from Objective-C
+  # and C.
+  #############################################################################
+
+  unique-numbers:
+    - match: |-
+        (?x)
+        (?:
+        # floats
+          (?:
+          (?:\b\d(?:[\d']*\d)?\.\d(?:[\d']*\d)?|\B\.\d(?:[\d']*\d)?)(?:[Ee][+-]?\d(?:[\d']*\d)?)?(?:[fFlL]|(?:i[fl]?|h|min|[mun]?s|_\w*))?\b
+          |
+          (?:\b\d(?:[\d']*\d)?\.)(?:\B|(?:[fFlL]|(?:i[fl]?|h|min|[mun]?s|_\w*))\b|(?:[Ee][+-]?\d(?:[\d']*\d)?)(?:[fFlL]|(?:i[fl]?|h|min|[mun]?s|_\w*))?\b)
+          |
+          \b\d(?:[\d']*\d)?(?:[Ee][+-]?\d(?:[\d']*\d)?)(?:[fFlL]|(?:i[fl]?|h|min|[mun]?s|_\w*))?\b
+          )
+        |
+        # ints
+          \b(?:
+          (?:
+          # dec
+          [1-9](?:[\d']*\d)?
+          |
+          # oct
+          0(?:[0-7']*[0-7])?
+          |
+          # hex
+          0[Xx][\da-fA-F](?:[\da-fA-F']*[\da-fA-F])?
+          |
+          # bin
+          0[Bb][01](?:[01']*[01])?
+          )
+          # int suffixes
+          (?:(?:l{1,2}|L{1,2})[uU]?|[uU](?:l{0,2}|L{0,2})|(?:i[fl]?|h|min|[mun]?s|_\w*))?)\b
+        )
+        (?!\.) # Number must not be followed by a decimal point
+      scope: constant.numeric.c++
+
+  identifiers:
+    - match: '{{identifier}}'
+      captures:
+        1: punctuation.accessor.c++
+
+  #############################################################################
+  # The following are C++-specific contexts that should not be reused. This is
+  # because they push into subcontexts and use variables that are C++-specific.
+  #############################################################################
+
+  ## Common context layout
+
+  global:
+    # Take care of comments just before a function definition.
+    - match: /\*
+      scope: punctuation.definition.comment.c
+      push:
+        - - match: \s*(?=\w)
+            set: global-modifier
+          - match: ""
+            pop: true
+        - - meta_scope: comment.block.c
+          - match: \*/
+            scope: punctuation.definition.comment.c
+            pop: true
+    - include: early-expressions
+    - match: ^\s*(?=\w)
+      push: global-modifier
+    - include: late-expressions
+
+  statements:
+    - include: preprocessor-statements
+    - include: scope:source.c#label
+    - include: expressions
+
+  expressions:
+    - include: early-expressions
+    - include: late-expressions
+
+  early-expressions:
+    - include: early-expressions-before-generic-type
+    - include: generic-type
+    - include: early-expressions-after-generic-type
+
+  early-expressions-before-generic-type:
+    - include: preprocessor-expressions
+    - include: comments
+    - include: case-default
+    - include: keywords-parens
+    - include: keywords
+    - include: numbers
+    # Prevent a '<' from getting scoped as the start of another template
+    # parameter list, if in reality a less-than-or-equals sign is meant.
+    - match: <=
+      scope: keyword.operator.comparison.c
+
+  early-expressions-after-generic-type:
+    - include: operators
+    - include: members-dot
+    - include: strings
+    - include: parens
+    - include: brackets
+    - include: block
+    - include: variables
+    - include: constants
+    - match: ','
+      scope: punctuation.separator.c++
+    - match: '\)|\}'
+      scope: invalid.illegal.stray-bracket-end.c++
+
+  expressions-minus-generic-type:
+    - include: early-expressions-before-generic-type
+    - include: angle-brackets
+    - include: early-expressions-after-generic-type
+    - include: late-expressions
+
+  expressions-minus-generic-type-function-call:
+    - include: early-expressions-before-generic-type
+    - include: angle-brackets
+    - include: early-expressions-after-generic-type
+    - include: late-expressions-before-function-call
+    - include: identifiers
+    - match: ';'
+      scope: punctuation.terminator.c++
+
+  late-expressions:
+    - include: late-expressions-before-function-call
+    - include: function-call
+    - include: identifiers
+    - match: ';'
+      scope: punctuation.terminator.c++
+
+  late-expressions-before-function-call:
+    - include: modifiers-parens
+    - include: modifiers
+    - include: types
+
+  expressions-minus-function-call:
+    - include: early-expressions
+    - include: late-expressions-before-function-call
+    - include: identifiers
+    - match: ';'
+      scope: punctuation.terminator.c++
+
+  comments:
+    - include: scope:source.c#comments
+
+  operators:
+    - include: scope:source.c#operators
+
+  modifiers:
+    - match: \b({{modifiers}})\b
+      scope: storage.modifier.c++
+
+  variables:
+    - include: scope:source.c#variables
+
+  constants:
+    - match: \b(TRUE|FALSE|OBJECT_INVALID)\b
+      scope: constant.language.c
+    - match: \b(__FILE__|__FUNCTION__|__LINE__)\b
+      scope: support.constant.c
+    # common C constant naming idiom -- kConstantVariable
+    - match: '\bk[A-Z]\w*\b'
+      scope: constant.other.variable.mac-classic.c
+
+  keywords:
+    - match: \b({{control_keywords}})\b
+      scope: keyword.control.c++
+
+  types:
+    - match: \b({{basic_types}}|{{before_tag}})\b
+      scope: storage.type.c
+
+  strings:
+    - include: scope:source.c#strings
+
+  numbers:
+    - include: unique-numbers
+    - include: scope:source.c#numbers
+
+  ## C++-specific contexts
+
+  case-default:
+    - match: '\b(default|case)\b'
+      scope: keyword.control.c++
+      push:
+        - match: (?=[);,])
+          pop: true
+        - match: ':'
+          scope: punctuation.separator.c++
+          pop: true
+        - include: expressions
+
+  block:
+    - match: '\{'
+      scope: punctuation.section.block.begin.c++
+      push:
+        - meta_scope: meta.block.c++
+        - match: (?=^\s*#\s*(elif|else|endif)\b)
+          pop: true
+        - match: '\}'
+          scope: punctuation.section.block.end.c++
+          pop: true
+        - include: statements
+
+  function-call:
+    - match: (?={{path_lookahead}}\s*\()
+      push:
+        - meta_scope: meta.function-call.c++
+        - include: scope:source.c#c99
+        - match: '{{identifier}}'
+          scope: variable.function.c++
+          captures:
+            1: punctuation.accessor.c++
+        - match: '\('
+          scope: meta.group.c++ punctuation.section.group.begin.c++
+          set:
+            - meta_content_scope: meta.function-call.c++ meta.group.c++
+            - match: '\)'
+              scope: meta.function-call.c++ meta.group.c++ punctuation.section.group.end.c++
+              pop: true
+            - include: expressions
+
+  members-inside-function-call:
+    - meta_content_scope: meta.method-call.c++ meta.group.c++
+    - match: \)
+      scope: meta.method-call.c++ meta.group.c++ punctuation.section.group.end.c++
+      pop: true
+    - include: expressions
+
+  members-after-accessor-junction:
+    # Just a regular member variable
+    - match: '{{identifier}}'
+      scope: variable.other.readwrite.member.c++
+      pop: true
+
+  members-dot:
+    - include: scope:source.c#access-illegal
+    # No lookahead required because members-dot goes after operators in the
+    # early-expressions-after-generic-type context. This means triple dots
+    # (i.e. "..." or "variadic") is attempted first.
+    - match: \.
+      scope: punctuation.accessor.dot.c++
+      push: members-after-accessor-junction
+
+  parens:
+    - match: \(
+      scope: punctuation.section.group.begin.c++
+      push:
+        - meta_scope: meta.group.c++
+        - match: \)
+          scope: punctuation.section.group.end.c++
+          pop: true
+        - include: expressions
+
+  brackets:
+    - match: \[
+      scope: punctuation.section.brackets.begin.c++
+      push:
+        - meta_scope: meta.brackets.c++
+        - match: \]
+          scope: punctuation.section.brackets.end.c++
+          pop: true
+        - include: expressions
+
+  function-trailing-return-type:
+    - match: '{{non_angle_brackets}}'
+      pop: true
+    - include: angle-brackets
+    - include: types
+    - include: modifiers-parens
+    - include: modifiers
+    - include: identifiers
+    - match: \*|&
+      scope: keyword.operator.c++
+    - include: function-trailing-return-type-parens
+    - match: '(?=\S)'
+      pop: true
+
+  function-trailing-return-type-parens:
+    - match: \(
+      scope: punctuation.section.group.begin.c++
+      push:
+        - meta_scope: meta.group.c++
+        - match: \)
+          scope: punctuation.section.group.end.c++
+          pop: true
+        - include: function-trailing-return-type
+
+  ## Detection of function and data structure definitions at the global level
+
+  global-modifier:
+    - include: comments
+    - include: modifiers-parens
+    - include: modifiers
+    - match: '(?=\S)'
+      set: global-type
+
+  global-type:
+    - include: comments
+    - match: \*|&
+      scope: keyword.operator.c++
+    - match: '(?=\b({{control_keywords}})\b)'
+      pop: true
+    - match: '(?=\s)'
+      set: global-maybe-function
+    - match: \*
+      scope: keyword.operator.c
+    # If a struct/union/enum followed by a name that is not a macro or declspec
+    # then this is likely a return type of a function. This is uncommon.
+    - match: |-
+        (?x:
+          ({{before_tag}})
+          \s+
+          (?=
+            (?![[:upper:][:digit:]_]+\b)
+            {{identifier}}
+            (\s+{{identifier}}(?!\s*[{=;])|\s*\*+)
+          )
+        )
+      captures:
+        1: storage.type.c
+      set: global-maybe-function
+
+    # The previous match handles return types of struct/enum/etc from a func,
+    # there this one exits the context to allow matching an actual struct/class
+    - match: '(?=\b({{before_tag}})\b)'
+      set: data-structures
+    - match: '{{non_angle_brackets}}'
+      pop: true
+    - include: angle-brackets
+    - include: types
+    # Allow a macro call
+    - match: '({{identifier}})\s*(\()(?=[^\)]+\))'
+      captures:
+        1: variable.function.c++
+        2: meta.group.c++ punctuation.section.group.begin.c++
+      push:
+        - meta_scope: meta.function-call.c++
+        - meta_content_scope: meta.group.c++
+        - match: '\)'
+          scope: meta.group.c++ punctuation.section.group.end.c++
+          pop: true
+        - include: expressions
+    - match: '(?={{path_lookahead}}\s*\()'
+      set:
+        - include: function-call
+        - match: ''
+          pop: true
+    - include: variables
+    - include: constants
+    - include: identifiers
+    - match: (?=\W)
+      pop: true
+
+  global-maybe-function:
+    - include: comments
+    # Consume pointer info, macros and any type info that was offset by macros
+    - match: \*|&
+      scope: keyword.operator.c++
+    - match: '(?=\b({{control_keywords}})\b)'
+      pop: true
+    - match: '\b({{type_qualifier}})\b'
+      scope: storage.modifier.c++
+    - match: '{{non_angle_brackets}}'
+      pop: true
+    - include: angle-brackets
+    - include: types
+    - include: modifiers-parens
+    - include: modifiers
+    # All uppercase identifier just before a newline is most likely a macro
+    - match: '[[:upper:][:digit:]_]+\s*$'
+    # Operator overloading
+    - match: '(?={{operator_method_name}}\s*(\(|$))'
+      set:
+        - meta_content_scope: meta.function.c++ entity.name.function.c++
+        - include: identifiers
+        - match: '(?=\s*(\(|$))'
+          set: function-definition-params
+    # Identifier that is not the function name - likely a macro or type
+    - match: '(?={{path_lookahead}}([ \t]+|[*&])(?!\s*(\(|$)))'
+      push:
+        - include: identifiers
+        - match: ''
+          pop: true
+    # Real function definition
+    - match: '(?={{path_lookahead}}({{generic_lookahead}}({{path_lookahead}})?)\s*(\(|$))'
+      set: [function-definition-params, global-function-identifier-generic]
+    - match: '(?={{path_lookahead}}\s*(\(|$))'
+      set: [function-definition-params, global-function-identifier]
+    - match: '(?=\S)'
+      pop: true
+
+  global-function-identifier-generic:
+    - include: angle-brackets
+    - match: '(?={{identifier}}\s*\()'
+      push:
+        - meta_content_scope: entity.name.function.c++
+        - include: identifiers
+        - match: ''
+          pop: true
+    - match: '(?=\()'
+      pop: true
+
+  global-function-identifier:
+    - meta_content_scope: entity.name.function.c++
+    - include: identifiers
+    - match: '(?=\S)'
+      pop: true
+
+  function-definition-params:
+    - meta_content_scope: meta.function.c++
+    - include: comments
+    - match: '(?=\()'
+      set:
+        - match: \(
+          scope: meta.function.parameters.c++ meta.group.c++ punctuation.section.group.begin.c++
+          set:
+            - meta_content_scope: meta.function.parameters.c++ meta.group.c++
+            - match : \)
+              scope: punctuation.section.group.end.c++
+              set: function-definition-continue
+            - match: '\bvoid\b'
+              scope: storage.type.c++
+            - match: '{{identifier}}(?=\s*(\[|,|\)|=))'
+              scope: variable.parameter.c++
+            - match: '='
+              scope: keyword.operator.assignment.c++
+              push:
+                - match: '(?=,|\))'
+                  pop: true
+                - include: expressions-minus-generic-type
+                - include: scope:source.c#preprocessor-line-continuation
+            - include: expressions-minus-generic-type
+            - include: scope:source.c#preprocessor-line-continuation
+    - match: (?=\S)
+      pop: true
+
+  function-definition-continue:
+    - meta_content_scope: meta.function.c++
+    - include: comments
+    - match: '(?=;)'
+      pop: true
+    - match: '->'
+      scope: punctuation.separator.c++
+      set: function-definition-trailing-return
+    - match: '='
+      scope: keyword.operator.assignment.c++
+    - match: '&'
+      scope: keyword.operator.c++
+    - match: \b0\b
+      scope: constant.numeric.c++
+    - match: '(?=\{)'
+      set: function-definition-body
+    - match: '(?=\S)'
+      pop: true
+
+  function-definition-trailing-return:
+    - include: comments
+    - match: '(?=;)'
+      pop: true
+    - match: '(?=\{)'
+      set: function-definition-body
+    - include: function-trailing-return-type
+
+  function-definition-body:
+    - meta_content_scope: meta.function.c++ meta.block.c++
+    - match: '\{'
+      scope: punctuation.section.block.begin.c++
+      set:
+        - meta_content_scope: meta.function.c++ meta.block.c++
+        - match: '\}'
+          scope: meta.function.c++ meta.block.c++ punctuation.section.block.end.c++
+          pop: true
+        - match: (?=^\s*#\s*(elif|else|endif)\b)
+          pop: true
+        - match: '(?=({{before_tag}})([^(;]+$|.*\{))'
+          push: data-structures
+        - include: statements
+
+  ## Data structures including classes, structs, unions and enums
+
+  data-structures:
+    # Detect variable type definitions using struct/enum/union followed by a tag
+    - match: '\b({{before_tag}})(?=\s+{{path_lookahead}}\s+{{path_lookahead}}\s*[=;\[])'
+      scope: storage.type.c++
+    - match: '\bstruct\b'
+      scope: storage.type.c++
+      set: data-structures-struct-definition
+    - match: '(?=\S)'
+      pop: true
+
+  preprocessor-workaround-eat-macro-before-identifier:
+    # Handle macros so they aren't matched as the class name
+    - match: ({{macro_identifier}})(?=\s+~?{{identifier}})
+      captures:
+        1: meta.assumed-macro.c
+
+  data-structures-struct-definition:
+    - meta_scope: meta.struct.c++
+    - include: data-structures-definition-common-begin
+    - match: '{{identifier}}(?={{data_structures_forward_decl_lookahead}})'
+      scope: entity.name.struct.forward-decl.c++
+      set: data-structures-struct-definition-after-identifier
+    - match: '{{identifier}}'
+      scope: entity.name.struct.c++
+      set: data-structures-struct-definition-after-identifier
+    - match: '(?=[:{])'
+      set: data-structures-struct-definition-after-identifier
+    - match: '(?=;)'
+      pop: true
+
+  data-structures-struct-definition-after-identifier:
+    - meta_content_scope: meta.struct.c++
+    - include: data-structures-definition-common-begin
+    # No matching of identifiers since they should all be macros at this point
+    - include: data-structures-definition-common-end
+    - match: '\{'
+      scope: meta.block.c++ punctuation.section.block.begin.c++
+      set:
+        - meta_content_scope: meta.struct.c++ meta.block.c++
+        - match: '\}'
+          scope: meta.struct.c++ meta.block.c++ punctuation.section.block.end.c++
+          pop: true
+        - include: data-structures-body
+
+  data-structures-definition-common-begin:
+    - include: comments
+    - match: '(?=\b(?:{{before_tag}}|{{control_keywords}})\b)'
+      pop: true
+    - include: preprocessor-other
+    - include: modifiers-parens
+    - include: modifiers
+    - include: preprocessor-workaround-eat-macro-before-identifier
+
+  data-structures-definition-common-end:
+    - match: '(?=;)'
+      pop: true
+
+  data-structures-body:
+    - include: preprocessor-data-structures
+    - include: expressions-minus-generic-type
+
+  method-definition-params:
+    - meta_content_scope: meta.method.c++
+    - include: comments
+    - match: '(?=\()'
+      set:
+        - match: \(
+          scope: meta.method.parameters.c++ meta.group.c++ punctuation.section.group.begin.c++
+          set:
+            - meta_content_scope: meta.method.parameters.c++ meta.group.c++
+            - match : \)
+              scope: punctuation.section.group.end.c++
+              set: method-definition-continue
+            - match: '\bvoid\b'
+              scope: storage.type.c++
+            - match: '{{identifier}}(?=\s*(\[|,|\)|=))'
+              scope: variable.parameter.c++
+            - match: '='
+              scope: keyword.operator.assignment.c++
+              push:
+                - match: '(?=,|\))'
+                  pop: true
+                - include: expressions-minus-generic-type
+            - include: expressions-minus-generic-type
+    - match: '(?=\S)'
+      pop: true
+
+  method-definition-continue:
+    - meta_content_scope: meta.method.c++
+    - include: comments
+    - match: '(?=;)'
+      pop: true
+    - match: '='
+      scope: keyword.operator.assignment.c++
+    - match: '&'
+      scope: keyword.operator.c++
+    - match: \b0\b
+      scope: constant.numeric.c++
+    - match: '(?=:)'
+      set:
+        - match: ':'
+          scope: punctuation.separator.initializer-list.c++
+          set:
+            - meta_scope: meta.method.constructor.initializer-list.c++
+            - match: '{{identifier}}'
+              scope: variable.other.readwrite.member.c++
+              push:
+                - match: \(
+                  scope: meta.group.c++ punctuation.section.group.begin.c++
+                  set:
+                    - meta_content_scope: meta.group.c++
+                    - match: \)
+                      scope: meta.group.c++ punctuation.section.group.end.c++
+                      pop: true
+                    - include: expressions
+                - match: \{
+                  scope: meta.group.c++ punctuation.section.group.begin.c++
+                  set:
+                    - meta_content_scope: meta.group.c++
+                    - match: \}
+                      scope: meta.group.c++ punctuation.section.group.end.c++
+                      pop: true
+                    - include: expressions
+                - include: comments
+            - match: (?=\{|;)
+              set: method-definition-continue
+            - include: expressions
+    - match: '(?=\{)'
+      set: method-definition-body
+    - match: '(?=\S)'
+      pop: true
+
+  method-definition-trailing-return:
+    - include: comments
+    - match: '(?=;)'
+      pop: true
+    - match: '(?=\{)'
+      set: method-definition-body
+    - include: function-trailing-return-type
+
+  method-definition-body:
+    - meta_content_scope: meta.method.c++ meta.block.c++
+    - match: '\{'
+      scope: punctuation.section.block.begin.c++
+      set:
+        - meta_content_scope: meta.method.c++ meta.block.c++
+        - match: '\}'
+          scope: meta.method.c++ meta.block.c++ punctuation.section.block.end.c++
+          pop: true
+        - match: (?=^\s*#\s*(elif|else|endif)\b)
+          pop: true
+        - match: '(?=({{before_tag}})([^(;]+$|.*\{))'
+          push: data-structures
+        - include: statements
+
+  ## Preprocessor for data-structures
+  preprocessor-data-structures:
+    - include: preprocessor-rule-enabled-data-structures
+    - include: preprocessor-rule-disabled-data-structures
+    - include: preprocessor-practical-workarounds
+
+  preprocessor-rule-disabled-data-structures:
+    - match: ^\s*((#if)\s+(0))\b
+      captures:
+        1: meta.preprocessor.c++
+        2: keyword.control.import.c++
+        3: constant.numeric.preprocessor.c++
+      push:
+        - match: ^\s*(#\s*endif)\b
+          captures:
+            1: meta.preprocessor.c++ keyword.control.import.c++
+          pop: true
+        - match: ^\s*(#\s*else)\b
+          captures:
+            1: meta.preprocessor.c++ keyword.control.import.else.c++
+          push:
+            - match: (?=^\s*#\s*endif\b)
+              pop: true
+            - include: negated-block
+            - include: data-structures-body
+        - match: ""
+          push:
+            - meta_scope: comment.block.preprocessor.if-branch.c++
+            - match: (?=^\s*#\s*(else|endif)\b)
+              pop: true
+            - include: scope:source.c#preprocessor-disabled
+
+  preprocessor-rule-enabled-data-structures:
+    - match: ^\s*((#if)\s+(0*1))\b
+      captures:
+        1: meta.preprocessor.c++
+        2: keyword.control.import.c++
+        3: constant.numeric.preprocessor.c++
+      push:
+        - match: ^\s*(#\s*endif)\b
+          captures:
+            1: meta.preprocessor.c++ keyword.control.import.c++
+          pop: true
+        - match: ^\s*(#\s*else)\b
+          captures:
+            1: meta.preprocessor.c++ keyword.control.import.else.c++
+          push:
+            - meta_content_scope: comment.block.preprocessor.else-branch.c++
+            - match: (?=^\s*#\s*endif\b)
+              pop: true
+            - include: scope:source.c#preprocessor-disabled
+        - match: ""
+          push:
+            - match: (?=^\s*#\s*(else|endif)\b)
+              pop: true
+            - include: negated-block
+            - include: data-structures-body
+
+  ## Preprocessor for global
+
+  preprocessor-global:
+    - include: preprocessor-rule-enabled-global
+    - include: preprocessor-rule-disabled-global
+    - include: preprocessor-rule-other-global
+
+  preprocessor-statements:
+    - include: preprocessor-rule-enabled-statements
+    - include: preprocessor-rule-disabled-statements
+    - include: preprocessor-rule-other-statements
+
+  preprocessor-expressions:
+    - include: scope:source.c#incomplete-inc
+    - include: preprocessor-macro-define
+    - include: scope:source.c#pragma-mark
+    - include: preprocessor-other
+
+  preprocessor-rule-disabled-global:
+    - match: ^\s*((#if)\s+(0))\b
+      captures:
+        1: meta.preprocessor.c++
+        2: keyword.control.import.c++
+        3: constant.numeric.preprocessor.c++
+      push:
+        - match: ^\s*(#\s*endif)\b
+          captures:
+            1: meta.preprocessor.c++ keyword.control.import.c++
+          pop: true
+        - match: ^\s*(#\s*else)\b
+          captures:
+            1: meta.preprocessor.c++ keyword.control.import.else.c++
+          push:
+            - match: (?=^\s*#\s*endif\b)
+              pop: true
+            - include: preprocessor-global
+            - include: negated-block
+            - include: global
+        - match: ""
+          push:
+            - meta_scope: comment.block.preprocessor.if-branch.c++
+            - match: (?=^\s*#\s*(else|endif)\b)
+              pop: true
+            - include: scope:source.c#preprocessor-disabled
+
+  preprocessor-rule-enabled-global:
+    - match: ^\s*((#if)\s+(0*1))\b
+      captures:
+        1: meta.preprocessor.c++
+        2: keyword.control.import.c++
+        3: constant.numeric.preprocessor.c++
+      push:
+        - match: ^\s*(#\s*endif)\b
+          captures:
+            1: meta.preprocessor.c++ keyword.control.import.c++
+          pop: true
+        - match: ^\s*(#\s*else)\b
+          captures:
+            1: meta.preprocessor.c++ keyword.control.import.else.c++
+          push:
+            - meta_content_scope: comment.block.preprocessor.else-branch.c++
+            - match: (?=^\s*#\s*endif\b)
+              pop: true
+            - include: scope:source.c#preprocessor-disabled
+        - match: ""
+          push:
+            - match: (?=^\s*#\s*(else|endif)\b)
+              pop: true
+            - include: preprocessor-global
+            - include: negated-block
+            - include: global
+
+  preprocessor-rule-other-global:
+    - match: ^\s*(#\s*(?:if|ifdef|ifndef))\b
+      captures:
+        1: keyword.control.import.c++
+      push:
+        - meta_scope: meta.preprocessor.c++
+        - include: scope:source.c#preprocessor-line-continuation
+        - include: scope:source.c#preprocessor-comments
+        - match: \bdefined\b
+          scope: keyword.control.c++
+        # Enter a new scope where all elif/else branches have their
+        # contexts popped by a subsequent elif/else/endif. This ensures that
+        # preprocessor branches don't push multiple meta.block scopes on
+        # the stack, thus messing up the "global" context's detection of
+        # functions.
+        - match: $\n
+          set: preprocessor-if-branch-global
+
+  # These gymnastics here ensure that we are properly handling scope even
+  # when the preprocessor is used to create different scope beginnings, such
+  # as a different if/while condition
+  preprocessor-if-branch-global:
+    - match: ^\s*(#\s*endif)\b
+      captures:
+        1: meta.preprocessor.c++ keyword.control.import.c++
+      pop: true
+    - match: (?=^\s*#\s*(elif|else)\b)
+      push: preprocessor-elif-else-branch-global
+    - match: \{
+      scope: punctuation.section.block.begin.c++
+      set: preprocessor-block-if-branch-global
+    - include: preprocessor-global
+    - include: negated-block
+    - include: global
+
+  preprocessor-block-if-branch-global:
+    - meta_scope: meta.block.c++
+    - match: ^\s*(#\s*endif)\b
+      captures:
+        1: meta.preprocessor.c++ keyword.control.import.c++
+      set: preprocessor-block-finish-global
+    - match: (?=^\s*#\s*(elif|else)\b)
+      push: preprocessor-elif-else-branch-global
+    - match: \}
+      scope: punctuation.section.block.end.c++
+      set: preprocessor-if-branch-global
+    - include: statements
+
+  preprocessor-block-finish-global:
+    - meta_scope: meta.block.c++
+    - match: ^\s*(#\s*(?:if|ifdef|ifndef))\b
+      captures:
+        1: meta.preprocessor.c++ keyword.control.import.c++
+      set: preprocessor-block-finish-if-branch-global
+    - match: \}
+      scope: punctuation.section.block.end.c++
+      pop: true
+    - include: statements
+
+  preprocessor-block-finish-if-branch-global:
+    - match: ^\s*(#\s*endif)\b
+      captures:
+        1: keyword.control.import.c++
+      pop: true
+    - match: \}
+      scope: punctuation.section.block.end.c++
+      set: preprocessor-if-branch-global
+    - include: statements
+
+  preprocessor-elif-else-branch-global:
+    - match: (?=^\s*#\s*(endif)\b)
+      pop: true
+    - include: preprocessor-global
+    - include: negated-block
+    - include: global
+
+  ## Preprocessor for statements
+
+  preprocessor-rule-disabled-statements:
+    - match: ^\s*((#if)\s+(0))\b
+      captures:
+        1: meta.preprocessor.c++
+        2: keyword.control.import.c++
+        3: constant.numeric.preprocessor.c++
+      push:
+        - match: ^\s*(#\s*endif)\b
+          captures:
+            1: meta.preprocessor.c++ keyword.control.import.c++
+          pop: true
+        - match: ^\s*(#\s*else)\b
+          captures:
+            1: meta.preprocessor.c++ keyword.control.import.else.c++
+          push:
+            - match: (?=^\s*#\s*endif\b)
+              pop: true
+            - include: negated-block
+            - include: statements
+        - match: ""
+          push:
+            - meta_scope: comment.block.preprocessor.if-branch.c++
+            - match: (?=^\s*#\s*(else|endif)\b)
+              pop: true
+            - include: scope:source.c#preprocessor-disabled
+
+  preprocessor-rule-enabled-statements:
+    - match: ^\s*((#if)\s+(0*1))\b
+      captures:
+        1: meta.preprocessor.c++
+        2: keyword.control.import.c++
+        3: constant.numeric.preprocessor.c++
+      push:
+        - match: ^\s*(#\s*endif)\b
+          captures:
+            1: meta.preprocessor.c++ keyword.control.import.c++
+          pop: true
+        - match: ^\s*(#\s*else)\b
+          captures:
+            1: meta.preprocessor.c++ keyword.control.import.else.c++
+          push:
+            - meta_content_scope: comment.block.preprocessor.else-branch.c++
+            - match: (?=^\s*#\s*endif\b)
+              pop: true
+            - include: scope:source.c#preprocessor-disabled
+        - match: ""
+          push:
+            - match: (?=^\s*#\s*(else|endif)\b)
+              pop: true
+            - include: negated-block
+            - include: statements
+
+  preprocessor-rule-other-statements:
+    - match: ^\s*(#\s*(?:if|ifdef|ifndef))\b
+      captures:
+        1: keyword.control.import.c++
+      push:
+        - meta_scope: meta.preprocessor.c++
+        - include: scope:source.c#preprocessor-line-continuation
+        - include: scope:source.c#preprocessor-comments
+        - match: \bdefined\b
+          scope: keyword.control.c++
+        # Enter a new scope where all elif/else branches have their
+        # contexts popped by a subsequent elif/else/endif. This ensures that
+        # preprocessor branches don't push multiple meta.block scopes on
+        # the stack, thus messing up the "global" context's detection of
+        # functions.
+        - match: $\n
+          set: preprocessor-if-branch-statements
+
+  # These gymnastics here ensure that we are properly handling scope even
+  # when the preprocessor is used to create different scope beginnings, such
+  # as a different if/while condition
+  preprocessor-if-branch-statements:
+    - match: ^\s*(#\s*endif)\b
+      captures:
+        1: meta.preprocessor.c++ keyword.control.import.c++
+      pop: true
+    - match: (?=^\s*#\s*(elif|else)\b)
+      push: preprocessor-elif-else-branch-statements
+    - match: \{
+      scope: punctuation.section.block.begin.c++
+      set: preprocessor-block-if-branch-statements
+    - match: (?=(?!{{non_func_keywords}}){{path_lookahead}}\s*\()
+      set: preprocessor-if-branch-function-call
+    - include: negated-block
+    - include: statements
+
+  preprocessor-if-branch-function-call:
+    - meta_content_scope: meta.function-call.c++
+    - include: scope:source.c#c99
+    - match: '{{identifier}}'
+      scope: variable.function.c++
+      captures:
+        1: punctuation.accessor.c++
+    - match: '\('
+      scope: meta.group.c++ punctuation.section.group.begin.c++
+      set: preprocessor-if-branch-function-call-arguments
+
+  preprocessor-if-branch-function-call-arguments:
+    - meta_content_scope: meta.function-call.c++ meta.group.c++
+    - match : \)
+      scope: meta.function-call.c++ meta.group.c++ punctuation.section.group.end.c++
+      set: preprocessor-if-branch-statements
+    - match: ^\s*(#\s*(?:elif|else))\b
+      captures:
+        1: meta.preprocessor.c++ keyword.control.import.c++
+      set: preprocessor-if-branch-statements
+    - match: ^\s*(#\s*endif)\b
+      captures:
+        1: meta.preprocessor.c++ keyword.control.import.c++
+      set: preprocessor-if-branch-function-call-arguments-finish
+    - include: expressions
+
+  preprocessor-if-branch-function-call-arguments-finish:
+    - meta_content_scope: meta.function-call.c++ meta.group.c++
+    - match: \)
+      scope: meta.function-call.c++ meta.group.c++ punctuation.section.group.end.c++
+      pop: true
+    - include: expressions
+
+  preprocessor-block-if-branch-statements:
+    - meta_scope: meta.block.c++
+    - match: ^\s*(#\s*endif)\b
+      captures:
+        1: meta.preprocessor.c++ keyword.control.import.c++
+      set: preprocessor-block-finish-statements
+    - match: (?=^\s*#\s*(elif|else)\b)
+      push: preprocessor-elif-else-branch-statements
+    - match: \}
+      scope: punctuation.section.block.end.c++
+      set: preprocessor-if-branch-statements
+    - include: statements
+
+  preprocessor-block-finish-statements:
+    - meta_scope: meta.block.c++
+    - match: ^\s*(#\s*(?:if|ifdef|ifndef))\b
+      captures:
+        1: meta.preprocessor.c++ keyword.control.import.c++
+      set: preprocessor-block-finish-if-branch-statements
+    - match: \}
+      scope: punctuation.section.block.end.c++
+      pop: true
+    - include: statements
+
+  preprocessor-block-finish-if-branch-statements:
+    - match: ^\s*(#\s*endif)\b
+      captures:
+        1: keyword.control.import.c++
+      pop: true
+    - match: \}
+      scope: meta.block.c++ punctuation.section.block.end.c++
+      set: preprocessor-if-branch-statements
+    - include: statements
+
+  preprocessor-elif-else-branch-statements:
+    - match: (?=^\s*#\s*endif\b)
+      pop: true
+    - include: negated-block
+    - include: statements
+
+  ## Preprocessor other
+
+  negated-block:
+    - match: '\}'
+      scope: punctuation.section.block.end.c++
+      push:
+        - match: '\{'
+          scope: punctuation.section.block.begin.c++
+          pop: true
+        - match: (?=^\s*#\s*(elif|else|endif)\b)
+          pop: true
+        - include: statements
+
+  preprocessor-macro-define:
+    - match: ^\s*(\#\s*define)\b
+      captures:
+        1: meta.preprocessor.macro.c++ keyword.control.import.define.c++
+      push:
+        - meta_content_scope: meta.preprocessor.macro.c++
+        - include: scope:source.c#preprocessor-line-continuation
+        - include: scope:source.c#preprocessor-line-ending
+        - include: scope:source.c#preprocessor-comments
+        - match: '({{identifier}})(?=\()'
+          scope: entity.name.function.preprocessor.c++
+          set:
+            - match: '\('
+              scope: punctuation.section.group.begin.c++
+              set: preprocessor-macro-params
+        - match: '{{identifier}}'
+          scope: entity.name.constant.preprocessor.c++
+          set: preprocessor-macro-definition
+
+  preprocessor-macro-params:
+    - meta_scope: meta.preprocessor.macro.parameters.c++ meta.group.c++
+    - match: '{{identifier}}'
+      scope: variable.parameter.c++
+    - match: \)
+      scope: punctuation.section.group.end.c++
+      set: preprocessor-macro-definition
+    - match: ','
+      scope: punctuation.separator.c++
+      push:
+        - match: '{{identifier}}'
+          scope: variable.parameter.c++
+          pop: true
+        - include: scope:source.c#preprocessor-line-continuation
+        - include: scope:source.c#preprocessor-comments
+        - match: '\.\.\.'
+          scope: keyword.operator.variadic.c++
+        - match: '(?=\))'
+          pop: true
+        - match: (/\*).*(\*/)
+          scope: comment.block.c++
+          captures:
+            1: punctuation.definition.comment.c++
+            2: punctuation.definition.comment.c++
+        - match: '\S+'
+          scope: invalid.illegal.unexpected-character.c++
+    - include: scope:source.c#preprocessor-line-continuation
+    - include: scope:source.c#preprocessor-comments
+    - match: '\.\.\.'
+      scope: keyword.operator.variadic.c++
+    - match: (/\*).*(\*/)
+      scope: comment.block.c++
+      captures:
+        1: punctuation.definition.comment.c++
+        2: punctuation.definition.comment.c++
+    - match: $\n
+      scope: invalid.illegal.unexpected-end-of-line.c++
+
+  preprocessor-macro-definition:
+    - meta_content_scope: meta.preprocessor.macro.c++
+    - include: scope:source.c#preprocessor-line-continuation
+    - include: scope:source.c#preprocessor-line-ending
+    - include: scope:source.c#preprocessor-comments
+    # Don't define blocks in define statements
+    - match: '\{'
+      scope: punctuation.section.block.begin.c++
+    - match: '\}'
+      scope: punctuation.section.block.end.c++
+    - include: expressions
+
+  preprocessor-practical-workarounds:
+    - include: preprocessor-convention-ignore-uppercase-ident-lines
+    - include: scope:source.c#preprocessor-convention-ignore-uppercase-calls-without-semicolon
+
+  preprocessor-convention-ignore-uppercase-ident-lines:
+    - match: ^(\s*{{macro_identifier}})+\s*$
+      scope: meta.assumed-macro.c++
+      push:
+        # It's possible that we are dealing with a function return type on its own line, and the
+        # name of the function is on the subsequent line.
+        - match: '(?={{path_lookahead}}({{generic_lookahead}}({{path_lookahead}})?)\s*\()'
+          set: [function-definition-params, global-function-identifier-generic]
+        - match: '(?={{path_lookahead}}\s*\()'
+          set: [function-definition-params, global-function-identifier]
+        - match: ^
+          pop: true
+
+  preprocessor-other:
+    - match: ^\s*(#\s*(?:if|ifdef|ifndef|elif|else|line|pragma|undef))\b
+      captures:
+        1: keyword.control.import.c++
+      push:
+        - meta_scope: meta.preprocessor.c++
+        - include: scope:source.c#preprocessor-line-continuation
+        - include: scope:source.c#preprocessor-line-ending
+        - include: scope:source.c#preprocessor-comments
+        - match: \bdefined\b
+          scope: keyword.control.c++
+    - match: ^\s*(#\s*endif)\b
+      captures:
+        1: meta.preprocessor.c++ keyword.control.import.c++
+    - match: ^\s*(#\s*(?:error|warning))\b
+      captures:
+        1: keyword.control.import.error.c++
+      push:
+        - meta_scope: meta.preprocessor.diagnostic.c++
+        - include: scope:source.c#preprocessor-line-continuation
+        - include: scope:source.c#preprocessor-line-ending
+        - include: scope:source.c#preprocessor-comments
+        - include: strings
+        - match: '\S+'
+          scope: string.unquoted.c++
+    - match: ^\s*(#\s*(?:include|include_next|import))\b
+      captures:
+        1: keyword.control.import.include.c++
+      push:
+        - meta_scope: meta.preprocessor.include.c++
+        - include: scope:source.c#preprocessor-line-continuation
+        - include: scope:source.c#preprocessor-line-ending
+        - include: scope:source.c#preprocessor-comments
+        - match: '"'
+          scope: punctuation.definition.string.begin.c++
+          push:
+            - meta_scope: string.quoted.double.include.c++
+            - match: '"'
+              scope: punctuation.definition.string.end.c++
+              pop: true
+        - match: <
+          scope: punctuation.definition.string.begin.c++
+          push:
+            - meta_scope: string.quoted.other.lt-gt.include.c++
+            - match: '>'
+              scope: punctuation.definition.string.end.c++
+              pop: true
+    - include: preprocessor-practical-workarounds

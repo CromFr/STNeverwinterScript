@@ -68,7 +68,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
             self.panel = self.window.create_output_panel('exec')
 
             self.panel.set_line_endings("Windows")
-            self.panel.set_syntax_file("Packages/STNeverwinterScript/nwscript.build-language")
+            self.panel.set_syntax_file("Packages/STNeverwinterScript/nwnscriptcompiler.sublime-syntax")
 
             # Set regex
             settings = self.panel.settings()

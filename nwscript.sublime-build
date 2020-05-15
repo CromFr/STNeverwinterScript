@@ -3,7 +3,7 @@
 	"file_regex": "^\\s*?([^\\(]+)\\(([0-9]+)\\): (Error|Warning): .*?$",
 	"encoding": "cp850",
 	"shell": true,
-	"syntax": "Packages/STNeverwinterScript/nwscript.build-language",
+	"syntax": "Packages/STNeverwinterScript/nwnscriptcompiler.sublime-syntax",
 
 	"windows":
 	{

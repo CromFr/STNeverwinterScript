@@ -1,0 +1,17 @@
+%YAML 1.2
+---
+name: Advanced NWNScriptCompiler output
+hidden: true
+scope: source.build_output.nwnscriptcompiler
+contexts:
+  main:
+    - match: '^(?:\s*+([^\(]+)\(([0-9]+)\): )?(Error): .*?$'
+      captures:
+        1: entity.name.filename.nwnscriptcompiler
+        2: constant.numeric.line-number.nwnscriptcompiler
+        3: invalid
+    - match: '^(?:\s*+([^\(]+)\(([0-9]+)\): )?(Warning): .*?$'
+      captures:
+        1: entity.name.filename.nwnscriptcompiler
+        2: constant.numeric.line-number.nwnscriptcompiler
+        3: message.error
