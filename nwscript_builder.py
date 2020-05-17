@@ -57,38 +57,44 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
 
     # Setup build results pane and start run_build in a side thread
-    def run(self, build_all=False, **kargs):
+    def run(self, build_type="smart", kill=False, **kargs):
         vars = self.window.extract_variables()
         if "file_path" not in vars:
             return
         working_dir = vars['file_path']
 
-        with self.panel_lock:
-            # Open results panel and configure it
-            self.panel = self.window.create_output_panel('exec')
+        if kill is True:
+            build_type = "kill"
+        else:
+            with self.panel_lock:
+                # Open results panel and configure it
+                self.panel = self.window.create_output_panel('exec')
 
-            self.panel.set_line_endings("Windows")
-            self.panel.set_syntax_file("Packages/Neverwinter Script syntax and build/nwnscriptcompiler.sublime-syntax")
+                self.panel.set_line_endings("Windows")
+                self.panel.set_syntax_file(
+                    "Packages/Neverwinter Script syntax and build/nwnscriptcompiler.sublime-syntax"
+                )
 
-            # Set regex
-            settings = self.panel.settings()
-            settings.set(
-                "result_file_regex",
-                "^\\s*?([^\\(]+)\\(([0-9]+)\\): (Error|Warning): .*?$"
-            )
-            settings.set("result_base_dir", working_dir)
+                # Set regex
+                settings = self.panel.settings()
+                settings.set('word_wrap', True)
+                settings.set(
+                    "result_file_regex",
+                    "^\\s*?([^\\(]+)\\(([0-9]+)\\): (Error|Warning): .*?$"
+                )
+                settings.set("result_base_dir", working_dir)
 
-            self.window.run_command("show_panel", {"panel": "output.exec"})
+                self.window.run_command("show_panel", {"panel": "output.exec"})
 
 
         # Work in a separate thread to so main thread doesn't freeze
         threading.Thread(
             target=self.run_build,
-            args=(working_dir, build_all)
+            args=(working_dir, build_type)
         ).start()
 
     # Main build function
-    def run_build(self, working_dir: str, build_all: bool):
+    def run_build(self, working_dir: str, build_type: str):
         # Stop currently running processes
         if self.build_lock.locked():
             self.print_build_results("STOPPING CURRENT BUILD\n")
@@ -100,35 +106,46 @@ class nwscript_builder(sublime_plugin.WindowCommand):
             self.stop_build = False
             self.print_build_results("STOPPED\n")
 
+        if build_type == "kill":
+            return
+
         with self.build_lock:
             # Fix scrolling issue
             self.print_build_results("\n")
             self.panel.set_viewport_position((0, 0))
 
-            # Parse scripts in include paths (will be done only the first time)
-            self.init_includes_cache()
-
-            # Update module script list
-            self.update_script_list(working_dir)
-
-            # Cache is now built
-            dircache = self.cache[working_dir]
-
-            # Get modified script + scripts using them
-            if build_all:
-                scripts_to_build = [sn for sn in dircache.scripts if dircache.scripts[sn].nss is not None]
+            if build_type == "single":
+                vars = self.window.extract_variables()
+                src_to_build = [vars['file']]
             else:
-                scripts_to_build = self.get_unbuilt_scripts(working_dir)
+                # Parse scripts in include paths (will be done only the first time)
+                self.init_includes_cache()
 
-            if len(scripts_to_build) == 0:
-                self.print_build_results("=> No scripts needs to be compiled\n")
-                return
+                # Update module script list
+                self.update_script_list(working_dir)
 
-            self.print_build_results("=> %d scripts will be compiled\n" % len(scripts_to_build))
+                # Cache is now built
+                dircache = self.cache[working_dir]
+
+                # Get modified script + scripts using them
+                if build_type == "all":
+                    scripts_to_build = [sn for sn in dircache.scripts if dircache.scripts[sn].nss is not None]
+                elif build_type == "smart":
+                    scripts_to_build = self.get_unbuilt_scripts(working_dir)
+                else:
+                    self.print_build_results("Unknown build type: '%s'\n" % build_type)
+                    return
+
+                if len(scripts_to_build) == 0:
+                    self.print_build_results("=> No scripts needs to be compiled\n")
+                    return
+
+                self.print_build_results("=> %d scripts will be compiled\n" % len(scripts_to_build))
+
+                # Source files to compile
+                src_to_build = [dircache.scripts[sn].nss for sn in scripts_to_build]
+
             self.print_build_results(" Starting compilation ".center(80, "=") + "\n")
-
-            # Source files to compile
-            src_to_build = [dircache.scripts[sn].nss for sn in scripts_to_build]
 
             # Build the scripts
             perf_build_start = time.time()
@@ -139,15 +156,15 @@ class nwscript_builder(sublime_plugin.WindowCommand):
             perf_build_duration = perf_build_end - perf_build_start
 
             # Statz
-            time.sleep(0.5)
+            time.sleep(0.1)
             self.print_build_results(" Compilation ended ".center(80, "=") + "\n")
             if status == 0:
                 self.print_build_results(
-                    "Finished smart build in %.1f seconds with no errors\n" % perf_build_duration
+                    "Finished %s build in %.1f seconds\n" % (build_type, perf_build_duration)
                 )
             else:
                 self.print_build_results(
-                    "Finished smart build in %.1f seconds with some errors\n" % perf_build_duration
+                    "Finished %s build in %.1f seconds with some errors\n" % (build_type, perf_build_duration)
                 )
 
 
