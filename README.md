@@ -76,16 +76,8 @@ include paths for Linux (examples provided).
 
 ## Sublime package installation
 
-#### With PackageControl :
-1. Press <kbd>Ctrl+Shift+P</kbd>, write `PCInstall`, press <kbd>Enter</kbd>
+#### Install with PackageControl
+1. From Sublime Text: press <kbd>Ctrl+Shift+P</kbd>, write `PCInstall`, press <kbd>Enter</kbd>
 2. Search for `STNeverwinterScript`, press <kbd>Enter</kbd>
 3. Follow the [Compiler installation](#Compiler-installation) instruction
-  above, if you haven't already
-
-#### Manual install :
-
-1. Clone or download / extract https://github.com/CromFr/STNeverwinterScript
-  into the sublime package directory (from Sublime Text: _Preferences ->
-  Browse packages_)
-2. Follow the [Compiler installation](#Compiler-installation) instruction
   above, if you haven't already

@@ -2,19 +2,31 @@
 	"selector": "source.nss",
 	"file_regex": "^\\s*?([^\\(]+)\\(([0-9]+)\\): (Error|Warning): .*?$",
 	"encoding": "cp850",
-	"shell": true,
-	"syntax": "Packages/STNeverwinterScript/nwnscriptcompiler.sublime-syntax",
+	"syntax": "Packages/Neverwinter Script syntax and build/nwnscriptcompiler.sublime-syntax",
 
 	"windows":
 	{
-		"cmd": ["C:\\Program Files (x86)\\NWNScriptCompiler\\NWNScriptCompiler.exe","-i","C:\\Program Files (x86)\\NWNScriptCompiler\\Scripts","-v169","-a","-e","-o","-r","${file_path}","${file}"]
+		"cmd": [
+			"C:\\Program Files (x86)\\NWNScriptCompiler\\NWNScriptCompiler.exe",
+			"-i" ,"C:\\Program Files (x86)\\NWNScriptCompiler\\Scripts",
+			"-r", "${file_path}",
+			"-v169", "-e", "-a", "-o",
+			"${file}"
+		]
 	},
 	"linux":
 	{
 		"env": {
 			"WINEDEBUG": "-all"
 		},
-		"cmd": ["wine /opt/NWNScriptCompiler/NWNScriptCompiler.exe -i /opt/NWNScriptCompiler/Scripts -v169 -q -g -e -o -r \"${file_path}\" \"${file}\""]
+		"cmd": [
+			"wine",
+			"/opt/NWNScriptCompiler/NWNScriptCompiler.exe",
+			"-i" ,"/opt/NWNScriptCompiler/Scripts",
+			"-r", "${file_path}",
+			"-v169", "-e", "-a", "-o",
+			"${file}"
+		]
 	},
 
 	"variants":[
@@ -22,14 +34,29 @@
 			"name": "Rebuild everything",
 			"windows":
 			{
-				"cmd": ["C:\\Program Files (x86)\\NWNScriptCompiler\\NWNScriptCompiler.exe","-i","C:\\Program Files (x86)\\NWNScriptCompiler\\Scripts","-v169","-q","-g","-e","-o","-r","${file_path}","-y","-b","${file_path}","*.nss"]
+				"cmd": [
+					"C:\\Program Files (x86)\\NWNScriptCompiler\\NWNScriptCompiler.exe",
+					"-i" ,"C:\\Program Files (x86)\\NWNScriptCompiler\\Scripts",
+					"-r", "${file_path}",
+					"-v169", "-e", "-a", "-o", "-q", "-g", "-y",
+					"-b", "${file_path}",
+					"*.nss"
+				]
 			},
 			"linux":
 			{
 				"env": {
 					"WINEDEBUG": "-all"
 				},
-				"cmd": ["wine /opt/NWNScriptCompiler/NWNScriptCompiler.exe -i /opt/NWNScriptCompiler/Scripts -v169 -q -g -e -o -r \"${file_path}\" -y -b \"${file_path}\" \\*.nss"]
+				"cmd": [
+					"wine",
+					"/opt/NWNScriptCompiler/NWNScriptCompiler.exe",
+					"-i" ,"/opt/NWNScriptCompiler/Scripts",
+					"-r", "${file_path}",
+					"-v169", "-e", "-a", "-o","-q", "-g", "-y",
+					"-b", "${file_path}",
+					"${file}"
+				]
 			}
 		},
 		{
