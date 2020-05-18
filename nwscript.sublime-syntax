@@ -208,7 +208,7 @@ contexts:
     - include: scope:source.c#variables
 
   constants:
-    - match: \b(TRUE|FALSE|OBJECT_INVALID)\b
+    - match: \b(TRUE|FALSE|OBJECT_INVALID|OBJECT_SELF)\b
       scope: constant.language.c
     - match: \b(__FILE__|__FUNCTION__|__LINE__)\b
       scope: support.constant.c
