@@ -397,11 +397,16 @@ class nwscript_builder(sublime_plugin.WindowCommand):
                     ret += 1
             return ret
 
+        chunk_size = int(len(script_list) / multiprocessing.cpu_count()) + 1
+        if chunk_size < 30:
+            chunk_size = 30
+
         try:
             while len(script_list) > 0 and not self.stop_build:
                 # Take out scripts to build in this iteration
-                scripts_to_process = script_list[0: min(30, len(script_list))]
+                scripts_to_process = script_list[0: min(chunk_size, len(script_list))]
                 script_list = script_list[len(scripts_to_process):]
+
 
                 # Build command-line
                 args = compiler_cmd + include_args + [
