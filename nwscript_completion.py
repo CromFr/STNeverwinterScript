@@ -57,14 +57,32 @@ class Documentation:
         signature_html = None
         if self.signature[0] == "f":
             # function
-            args_list = self.signature[3].split(", ")
-            if len(self.signature[1]) + len(self.signature[2]) + len(self.signature[3]) + 3 > 80:
-                args_html = "<br>\t" + ",<br>\t".join(args_list) + "<br>"
+
+            if len(self.signature[3]) > 0:
+                args_charlen = sum([
+                    len(s[0]) + 1 + len(s[1])
+                    + (1 + len(s[2]) if s[2] is not None else 0)
+                    for s in self.signature[3]
+                ]) + 2 * (len(self.signature[3]) - 1)
             else:
-                args_html = self.signature[3]
+                args_charlen = 0
+
+            styled_args = [
+                '<span style="color: var(--bluish)">%s</span> <span style="color: var(--orangish)">%s</span>' % s[:2]
+                + (
+                    '<span style="color: var(--redish)">=</span><span style="color: var(--purplish)">%s</span>' % s[2]
+                    if s[2] is not None else ""
+                )
+                for s in self.signature[3]
+            ]
+
+            if len(self.signature[1]) + 1 + len(self.signature[2]) + 1 + args_charlen + 1 > 80:
+                args_html = "<br>\t" + ",<br>\t".join(styled_args) + "<br>"
+            else:
+                args_html = ", ".join(styled_args)
 
             symbol_type_name = "function"
-            signature_html = "%s <strong>%s</strong>(%s)" % (
+            signature_html = '<span style="color: var(--bluish)">%s</span> <span style="color: var(--accent)">%s</span>(%s)' % (
                 self.signature[1], self.signature[2], args_html
             )
 
@@ -87,11 +105,21 @@ class Documentation:
                 self.signature[1]
             )
 
-        text_html = (
-            '<p style="padding: 0 0.5em">%s</p>' % "<br>".join(self.text.splitlines())
-            if self.text is not None
-            else ""
-        )
+        if self.text is not None:
+            text = self._indent_fix(self.text)
+            for _, name, _ in self.signature[3]:
+                text = re.sub(
+                    r"\b" + re.escape(name) + r"\b",
+                    '<i><span style="color: var(--orangish)">%s</span></i>' % name,
+                    text
+                )
+
+            text_html = (
+                '<p style="padding: 0 0.5em">%s</p>' % "<br>".join(text.splitlines())
+            )
+        else:
+            text_html = ""
+
         location = (
             "%s defined in %s" % (symbol_type_name, self.script_resref)
             if self.script_resref != "nwscript"
@@ -99,8 +127,8 @@ class Documentation:
         )
 
         return """
-        <html style="padding: 0"><body style="margin: 0">
-            <div style="background-color: color(var(--foreground) {fix_color} alpha(0.07)); padding: 0.5em;">
+        <html style="padding: 0"><body id="nwscript-doc" style="margin: 0">
+            <div style="background-color: color(var(--foreground) {fix_color} alpha(0.05)); padding: 0.5em;">
                 {signature_html}
                 <div style="padding-left: 1em; color: color(var(--foreground) alpha(0.5));"><em>{location}</em></div>
             </div>
@@ -115,6 +143,27 @@ class Documentation:
             location=location,
             signature_html=signature_html,
         )
+
+    @staticmethod
+    def _indent_fix(text: str) -> str:
+        ret = ""
+        for line in text.splitlines():
+            for i in range(0, len(line)):
+                if line[i] == " ":
+                    ret += "&nbsp;"
+                elif line[i] == "\t":
+                    ret += "&nbsp;&nbsp;&nbsp;&nbsp;"
+                else:
+                    break
+            ret += line[i:] + "\n"
+        return ret
+
+
+
+
+    rgx_doc_arg = re.compile(
+        r'^(\s*-\s+)(\w+):\s',
+        re.MULTILINE)
 
 
 class NWScriptCompletion(sublime_plugin.EventListener):
@@ -260,7 +309,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if doc is not None:
             view.show_popup(
                 doc.format_popup(),
-                location=-1, max_width=view.em_width() * 80, flags=sublime.COOPERATE_WITH_AUTO_COMPLETE
+                location=-1, max_width=view.em_width() * (80 + 2), flags=sublime.COOPERATE_WITH_AUTO_COMPLETE
             )
             return True
 
@@ -426,14 +475,18 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                     # Register new symbol
 
                     # Parse function arguments
-                    args_list = []
+                    args = []
+                    args_comp_list = []
                     i = 0
                     if fun_args != "" and not fun_args.isspace():
                         for (arg_type, arg_name, arg_value) in self.rgx_fun_arg.findall(fun_args):
                             default = ""
                             if arg_value != "" and not arg_value.isspace():
                                 default += "=" + arg_value
-                            args_list.append("${%d:%s %s}" % (i + 1, arg_type, arg_name + default))
+                            else:
+                                arg_value = None
+                            args.append((arg_type, arg_name, arg_value))
+                            args_comp_list.append("${%d:%s %s}" % (i + 1, arg_type, arg_name + default))
 
                             i += 1
 
@@ -441,28 +494,24 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                     compl.symbol_list[fun_name] = len(compl.completions)
                     compl.completions.append([
                         "%s\t%s%s()" % (fun_name, custom_mark, fun_type),
-                        "%s(%s)" % (fun_name, ", ".join(args_list))
+                        "%s(%s)" % (fun_name, ", ".join(args_comp_list))
                     ])
 
                     doc = Documentation()
-                    doc.signature = ("f", fun_type, fun_name, fun_args)
+                    doc.signature = ("f", fun_type, fun_name, args)
                     doc.script_resref = resref
                     doc.fix = self.settings.get("doc_fixes").get(resref, {}).get(fun_name, None)
                     if doc.fix is None:
                         doc.fix = get_doc_fix(resref, fun_name)
 
-                    doc.text = (
-                        "\n".join([line[2:] for line in fun_doc.splitlines()])
-                        if fun_doc != "" and not fun_doc.isspace()
-                        else None
-                    )
+                    doc.text = self.remove_comments(fun_doc)
                     compl.documentation.append(doc)
                 else:
                     # Set documentation if none
                     existing_index = compl.symbol_list[fun_name]
                     existing_doc = compl.documentation[existing_index]
                     if existing_doc.text is None:
-                        existing_doc.text = fun_doc if fun_doc != "" and not fun_args.isspace() else None
+                        existing_doc.text = self.remove_comments(fun_doc)
 
         # const completions
         glob_rgx = self.rgx_global_nwscript if resref == "nwscript" else self.rgx_global_const
@@ -499,11 +548,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             doc = Documentation()
             doc.signature = ("s", struct_name)
             doc.script_resref = resref
-            doc.text = (
-                "\n".join([line[2:] for line in struct_doc.splitlines()])
-                if struct_doc != "" and not struct_doc.isspace()
-                else None
-            )
+            doc.text = self.remove_comments(struct_doc)
             compl.structs_doc[struct_name] = doc
 
         # update include completions
@@ -517,6 +562,15 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
         self.symbol_completions[resref] = compl
         return (resref, compl)
+
+    @staticmethod
+    def remove_comments(comm: str):
+        if comm == "" or comm.isspace():
+            return None
+        return "\n".join([
+            (line[3:] if len(line) > 2 and line[2] == ' ' else line[2:])
+            for line in comm.splitlines()
+        ])
 
 
     def init_include_list(self, module_path):
@@ -620,7 +674,6 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         re.MULTILINE)
 
     rgx_comment = re.compile(r'/\*.*?\*/|//[^\n]*', re.DOTALL)
-    rgx_multiline_comment = re.compile(r'/\*.*?\*/', re.DOTALL)
     rgx_include_partial = re.compile(
         r'^(?!\s*//)\s*#include\s+"([\w-]*)',
         re.MULTILINE)
