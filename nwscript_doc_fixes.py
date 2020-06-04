@@ -113,6 +113,9 @@ def get_doc_fix(script, symbol) -> str:
             "SetIsTemporaryEnemy": ("Warning", """
                 Makes oTarget a temporary enemy of oSource, not the other way round as documented below.
                 """),
+            "CopyItem": ("Warning", """
+                The 'Appearance (visual effect)' property will not be copied to the returned item.
+                """),
 
             "ActionRest": ("Note", """
                 Ignores bIgnoreNoRest parameter (does not ignore AREA no rest flag, but does ignore nearby hostile creatures)
