@@ -10,6 +10,25 @@
 	// 	"/opt/NWNScriptCompiler/NWNScriptCompiler.exe"
 	// ],
 
+	// Compiler command line arguments. These will be appended to compiler_cmd, after the include list.
+	//   -1 - Assume NWN1-style module and KEY/BIF resources instead of
+	//        NWN2-style module and ZIP resources.
+	//   -a - Analyze generated code and verify that it is consistent
+	//        (increases compilation time).
+	//   -c - Compile the script (default, overrides -d).
+	//   -d - Disassemble the script (overrides -c).
+	//   -e - Enable non-BioWare extensions.
+	//   -g - Suppress generation of .ndb debug symbols file.
+	//   -j - Show where include file are being sourced from.
+	//   -l - Load base game resources even if -m isn't supplied (slow),
+	//        so that "in-box" standard includes can be resolved.
+	//   -o - Optimize the compiled script.
+	//   -p - Dump internal PCode for compiled script contributions.
+	//   -q - Silence most messages.
+	//   -vx.xx - Set the version of the compiler.
+	//   -y - Continue processing input files even on error.
+	"compiler_args": ["-v169", "-q", "-g", "-e", "-o", "-y"],
+
 
 	// Path to the folders containing default script files. Module files will override these.
 	"include_path": [

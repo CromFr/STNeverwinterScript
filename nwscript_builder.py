@@ -384,6 +384,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
     def compile_files(self, working_dir, script_list: list):
         # Get compiler config
         compiler_cmd = self.settings.get("compiler_cmd")
+        compiler_args = self.settings.get("compiler_args")
         include_path = self.settings.get("include_path")
         include_args = []
         for inc in include_path:
@@ -409,8 +410,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
 
                 # Build command-line
-                args = compiler_cmd + include_args + [
-                    "-v169", "-q", "-g", "-e", "-o", "-y",
+                args = compiler_cmd + include_args + compiler_args + [
                     "-r", working_dir,
                     "-b", working_dir,
                 ]
