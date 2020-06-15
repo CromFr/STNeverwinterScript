@@ -116,6 +116,9 @@ def get_doc_fix(script, symbol) -> str:
             "CopyItem": ("Warning", """
                 The 'Appearance (visual effect)' property will not be copied to the returned item.
                 """),
+            "GetFirstObjectInShape": ("Warning", """
+                Make sure the area of lTarget is a valid area object, otherwise this function will crash the server.
+                """),
 
             "ActionRest": ("Note", """
                 Ignores bIgnoreNoRest parameter (does not ignore AREA no rest flag, but does ignore nearby hostile creatures)
