@@ -31,7 +31,7 @@ Chose either option 1 or 2
 
 #### Option 1: Using the prepared zip
 - Download and extract the [Packed
-  NWNScriptCompiler](https://github.com/CromFr/STNeverwinterScript/releases)
+  NWNScriptCompiler](https://github.com/CromFr/STNeverwinterScript/releases/tag/NWNScriptCompiler140705)
   in:
     - **Windows**: `C:\Program Files (x86)\`
     - **Linux**: `/opt/`
