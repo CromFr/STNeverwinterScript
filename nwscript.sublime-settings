@@ -1,5 +1,7 @@
 {
 	// Command to invoke the NWNScriptCompiler.exe executable. See example below for Linux users.
+	// See https://github.com/CromFr/STNeverwinterScript#compiler-installation-required-for-using-this-package
+	// for instructions on how to setup the compiler
 	"compiler_cmd": ["C:\\Program Files (x86)\\NWNScriptCompiler\\NWNScriptCompiler.exe"],
 
 	// Linux example:
@@ -31,6 +33,8 @@
 
 
 	// Path to the folders containing default script files. Module files will override these.
+	// See https://github.com/CromFr/STNeverwinterScript#compiler-installation-required-for-using-this-package
+	// for instructions on how to setup the compiler
 	"include_path": [
 		"C:\\Program Files (x86)\\NWNScriptCompiler\\Scripts\\",
 	],
@@ -60,9 +64,9 @@
 	//     },
 	// }
 	//
-    // script_name: Name of the script file without its extension where the
-    //     symbols are located.
-    // symbol_name: Name of the function or constant
+	// script_name: Name of the script file without its extension where the
+	//     symbols are located.
+	// symbol_name: Name of the function or constant
 	// severity: One of "Note", "Warning", "Broken". Other values are accepted
 	//     but will not be colored correctly.
 	// text: Documentation text. Can contain HTML tags. "\n" characters will be
