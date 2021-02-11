@@ -101,7 +101,8 @@ def get_doc_fix(script, symbol) -> str:
                 """),
             "ActionMoveToObject": ("Warning", """
                 - Does not move the creature to another area<br>
-                - The action is aborted if path toward the destination is blocked (by a door, another creature, etc.)
+                - The action is aborted if path toward the destination is blocked (by a door, another creature, etc.)<br>
+                ActionForceMoveToObject is an alternative that assures the creature always reaches the destination after a certain delay.
                 """),
             "ActionMoveToLocation": ("Warning", """
                 - Does not move the creature to another area<br>
@@ -146,6 +147,13 @@ def get_doc_fix(script, symbol) -> str:
                 """),
             "FadeToBlack": ("Note", """
                 nColor can be specified as hexadecimal value: 0xFFFFFF for white, 0xFF0000 for red, etc.
+                """),
+            "GetArea": ("Note", """
+                Returns OBJECT_INVALID if oTarget is an item in the inventory, or the module, or an invalid object.<br>
+                Returns oTarget if oTarget is an area.
+                """),
+            "GetIsLocationValid": ("Note", """
+                Checks if the location is <strong>walk-able</strong>. To check if the location is valid use GetIsObjectValid(GetAreaFromLocation(lLocation)).
                 """),
         }
     }.get(script, {}).get(symbol, None)
