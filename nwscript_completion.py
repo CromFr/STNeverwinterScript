@@ -172,6 +172,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
     def __init__(self):
         super().__init__()
+        self.st4 = sublime.version() >= "4073"
 
         # script resref => SymbolCompletions
         self.symbol_completions = {}
@@ -493,10 +494,22 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
                     # Add completion
                     compl.symbol_list[fun_name] = len(compl.completions)
-                    compl.completions.append([
-                        "%s\t%s%s()" % (fun_name, custom_mark, fun_type),
-                        "%s(%s)" % (fun_name, ", ".join(args_comp_list))
-                    ])
+                    if self.st4:
+                        compl.completions.append(
+                            sublime.CompletionItem(
+                                trigger=fun_name,
+                                annotation=custom_mark + fun_type,
+                                completion="%s(%s)" % (fun_name, ", ".join(args_comp_list)),
+                                completion_format=sublime.COMPLETION_FORMAT_SNIPPET,
+                                kind=sublime.KIND_FUNCTION,
+                                details="Defined in " + resref
+                            )
+                        )
+                    else:
+                        compl.completions.append([
+                            "%s\t%s%s()" % (fun_name, custom_mark, fun_type),
+                            "%s(%s)" % (fun_name, ", ".join(args_comp_list))
+                        ])
 
                     doc = Documentation()
                     doc.signature = ("f", fun_type, fun_name, args)
@@ -518,7 +531,20 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         glob_rgx = self.rgx_global_nwscript if resref == "nwscript" else self.rgx_global_const
         for (glob_type, glob_name, glob_value, glob_doc) in glob_rgx.findall(file_data):
             compl.symbol_list[glob_name] = len(compl.completions)
-            compl.completions.append(["%s\t%s%s=%s" % (glob_name, custom_mark, glob_type, glob_value), glob_name])
+
+            if self.st4:
+                compl.completions.append(
+                    sublime.CompletionItem(
+                        trigger=glob_name,
+                        annotation=custom_mark + glob_type + "=" + glob_value,
+                        completion=glob_name,
+                        completion_format=sublime.COMPLETION_FORMAT_TEXT,
+                        kind=(sublime.KIND_ID_VARIABLE, "c", "Constant"),
+                        details="Defined in " + resref
+                    )
+                )
+            else:
+                compl.completions.append(["%s\t%s%s=%s" % (glob_name, custom_mark, glob_type, glob_value), glob_name])
             doc = Documentation()
             doc.signature = ("c", glob_type, glob_name, glob_value)
             doc.script_resref = resref
@@ -532,7 +558,19 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         # #define completions
         for (def_doc, def_name, def_value) in self.rgx_define.findall(file_data):
             compl.symbol_list[def_name] = len(compl.completions)
-            compl.completions.append(["%s\t%s%s" % (def_name, custom_mark, def_value), def_name])
+            if self.st4:
+                compl.completions.append(
+                    sublime.CompletionItem(
+                        trigger=def_name,
+                        annotation=custom_mark + def_value,
+                        completion=def_name,
+                        completion_format=sublime.COMPLETION_FORMAT_TEXT,
+                        kind=(sublime.KIND_ID_VARIABLE, "d", "Define"),
+                        details="Defined in " + resref
+                    )
+                )
+            else:
+                compl.completions.append(["%s\t%s%s" % (def_name, custom_mark, def_value), def_name])
             doc = Documentation()
             doc.signature = ("d", def_name, def_value)
             doc.script_resref = resref
@@ -545,7 +583,19 @@ class NWScriptCompletion(sublime_plugin.EventListener):
 
         # struct completions
         for (struct_doc, struct_name) in self.rgx_struct.findall(file_data):
-            compl.structs_completions.append(["%s\t%sstruct" % (struct_name, custom_mark), struct_name])
+            if self.st4:
+                compl.completions.append(
+                    sublime.CompletionItem(
+                        trigger=struct_name,
+                        annotation=custom_mark + "struct",
+                        completion=struct_name,
+                        completion_format=sublime.COMPLETION_FORMAT_TEXT,
+                        kind=sublime.KIND_TYPE,
+                        details="Defined in " + resref
+                    )
+                )
+            else:
+                compl.structs_completions.append(["%s\t%sstruct" % (struct_name, custom_mark), struct_name])
             doc = Documentation()
             doc.signature = ("s", struct_name)
             doc.script_resref = resref
@@ -629,11 +679,25 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         for path in path_list:
             mark = "⋄" if path is module_path else ""
             if path in self.include_completions:
-                ret.extend([
-                    ["%s\t%sscript" % (resref, mark), resref]
-                    for resref in self.include_completions[path]
-                    if resref != "nwscript"
-                ])
+
+                if self.st4:
+                    ret.extend([
+                        sublime.CompletionItem(
+                            trigger=resref,
+                            annotation=mark + "script",
+                            completion=resref,
+                            completion_format=sublime.COMPLETION_FORMAT_TEXT,
+                            kind=sublime.KIND_NAMESPACE
+                        )
+                        for resref in self.include_completions[path]
+                        if resref != "nwscript"
+                    ])
+                else:
+                    ret.extend([
+                        ["%s\t%sscript" % (resref, mark), resref]
+                        for resref in self.include_completions[path]
+                        if resref != "nwscript"
+                    ])
         return ret
 
 
