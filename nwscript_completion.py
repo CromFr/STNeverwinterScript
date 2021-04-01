@@ -107,12 +107,13 @@ class Documentation:
 
         if self.text is not None:
             text = self._indent_fix(self.text)
-            for _, name, _ in self.signature[3]:
-                text = re.sub(
-                    r"\b" + re.escape(name) + r"\b",
-                    '<i><span style="color: var(--orangish)">%s</span></i>' % name,
-                    text
-                )
+            if len(self.signature) >= 4:
+                for _, name, _ in self.signature[3]:
+                    text = re.sub(
+                        r"\b" + re.escape(name) + r"\b",
+                        '<i><span style="color: var(--orangish)">%s</span></i>' % name,
+                        text
+                    )
 
             text_html = (
                 '<p style="padding: 0 0.5em">%s</p>' % "<br>".join(text.splitlines())
