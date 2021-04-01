@@ -120,6 +120,14 @@ def get_doc_fix(script, symbol) -> str:
             "GetFirstObjectInShape": ("Warning", """
                 Make sure the area of lTarget is a valid area object, otherwise this function will crash the server.
                 """),
+            "PlayCustomAnimation": ("Waning", """
+                fSpeed does not appear to work.<br>
+                <br>
+                Some characters have special meanings:<br>
+                <b>%</b> Idle animation / reset looping animation<br>
+                <b>*1attack01</b>: Play $model_$stance_1attack01<br>
+                <b>una_1attack01</b>: Play $model_una_1attack01<br>
+                """),
 
             "ActionRest": ("Note", """
                 Ignores bIgnoreNoRest parameter (does not ignore AREA no rest flag, but does ignore nearby hostile creatures)
@@ -134,7 +142,8 @@ def get_doc_fix(script, symbol) -> str:
                 Does not work with SKILL_ALL_SKILLS constant. Use a loop to add each skill individually.
                 """),
             "EffectAreaOfEffect": ("Note", """
-                Does not properly display AOE if creator is the Module or an Area. Use a placeable, creature or waypoint instead to create it.
+                Does not properly display AOE if creator is the Module or an Area. Use a placeable, creature or waypoint instead to create it.<br>
+                See vfx_persistent.2da for adding custom shapes.
                 """),
             "CreateObject": ("Note", """
                 Does not work for creatures if the location is not walkable (i.e. GetIsLocationValid returns FALSE). You can use CalcSafeLocation to find a good spot for spawning the creature.
@@ -154,6 +163,9 @@ def get_doc_fix(script, symbol) -> str:
                 """),
             "GetIsLocationValid": ("Note", """
                 Checks if the location is <strong>walk-able</strong>. To check if the location is valid use GetIsObjectValid(GetAreaFromLocation(lLocation)).
+                """),
+            "GetSpellId": ("Note", """
+                Can be used outside of spell scripts, as long as the effect was either created in a spell script or its spell ID was set using SetEffectSpellId.
                 """),
         }
     }.get(script, {}).get(symbol, None)
