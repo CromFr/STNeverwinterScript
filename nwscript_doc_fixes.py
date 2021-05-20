@@ -118,7 +118,10 @@ def get_doc_fix(script, symbol) -> str:
                 The 'Appearance (visual effect)' property will not be copied to the returned item.
                 """),
             "GetFirstObjectInShape": ("Warning", """
-                Make sure the area of lTarget is a valid area object, otherwise this function will crash the server.
+                Make sure the area of lTarget is a valid area object, otherwise this function will <strong>crash the server</strong>.
+                """),
+            "GetBicFileName": ("Warning", """
+                Make sure that oPC is a valid object, otherwise this function will <strong>crash the server</strong>.
                 """),
             "PlayCustomAnimation": ("Waning", """
                 fSpeed does not appear to work.<br>
