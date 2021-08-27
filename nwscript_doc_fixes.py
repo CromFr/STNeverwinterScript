@@ -123,13 +123,16 @@ def get_doc_fix(script, symbol) -> str:
             "GetBicFileName": ("Warning", """
                 Make sure that oPC is a valid object, otherwise this function will <strong>crash the server</strong>.
                 """),
-            "PlayCustomAnimation": ("Waning", """
+            "PlayCustomAnimation": ("Warning", """
                 fSpeed does not appear to work.<br>
                 <br>
                 Some characters have special meanings:<br>
                 <b>%</b> Idle animation / reset looping animation<br>
                 <b>*1attack01</b>: Play $model_$stance_1attack01<br>
                 <b>una_1attack01</b>: Play $model_una_1attack01<br>
+                """),
+            "EffectBonusHitpoints": ("Warning", """
+                Make sure nHitpoints > 0, otherwise this function will crash the server.
                 """),
 
             "ActionRest": ("Note", """
