@@ -29,7 +29,7 @@
 	//   -q - Silence most messages.
 	//   -vx.xx - Set the version of the compiler.
 	//   -y - Continue processing input files even on error.
-	"compiler_args": ["-v169", "-q", "-g", "-e", "-o", "-y"],
+	"compiler_args": ["-v169", "-q", "-e", "-o", "-y"],
 
 
 	// Path to the folders containing default script files. Module files will override these.
