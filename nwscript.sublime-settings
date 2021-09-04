@@ -2,15 +2,11 @@
 	// Command to invoke the NWNScriptCompiler.exe executable. See example below for Linux users.
 	// See https://github.com/CromFr/STNeverwinterScript#compiler-installation-required-for-using-this-package
 	// for instructions on how to setup the compiler
+	//
+	// Linux example:
+	// "compiler_cmd": ["env", "WINEDEBUG=-all", "wine", "/opt/NWNScriptCompiler/NWNScriptCompiler.exe"],
 	"compiler_cmd": ["C:\\Program Files (x86)\\NWNScriptCompiler\\NWNScriptCompiler.exe"],
 
-	// Linux example:
-	// "compiler_cmd": [
-	// 	"env",
-	// 	"WINEDEBUG=-all",
-	// 	"wine",
-	// 	"/opt/NWNScriptCompiler/NWNScriptCompiler.exe"
-	// ],
 
 	// Compiler command line arguments. These will be appended to compiler_cmd, after the include list.
 	//   -1 - Assume NWN1-style module and KEY/BIF resources instead of
@@ -22,6 +18,7 @@
 	//   -e - Enable non-BioWare extensions.
 	//   -g - Suppress generation of .ndb debug symbols file.
 	//   -j - Show where include file are being sourced from.
+	//   -k - Show preprocessed source text to console output.
 	//   -l - Load base game resources even if -m isn't supplied (slow),
 	//        so that "in-box" standard includes can be resolved.
 	//   -o - Optimize the compiled script.
@@ -29,20 +26,29 @@
 	//   -q - Silence most messages.
 	//   -vx.xx - Set the version of the compiler.
 	//   -y - Continue processing input files even on error.
-	"compiler_args": ["-v169", "-q", "-e", "-o", "-y"],
+	//
+	// Examples:
+	//
+	// Compatibility options (for single player modules):
+	// "compiler_args": ["-q", "-o", "-y", "-v1.69"],
+	//
+	// Latest features for servers with AuroraServerNWScript plugin (may cause
+	//   issues for GUI scripts in single-player):
+	// "compiler_args": ["-q", "-o", "-y", "-v1.70", "-e"],
+	"compiler_args": ["-q", "-o", "-y", "-v1.69"],
+
 
 
 	// Path to the folders containing default script files. Module files will override these.
 	// See https://github.com/CromFr/STNeverwinterScript#compiler-installation-required-for-using-this-package
 	// for instructions on how to setup the compiler
+	//
+	// Linux example:
+	// "include_path": ["/opt/NWNScriptCompiler/Scripts"],
 	"include_path": [
 		"C:\\Program Files (x86)\\NWNScriptCompiler\\Scripts\\",
 	],
 
-	// Linux example:
-	// "include_path": [
-	// 	"/opt/NWNScriptCompiler/Scripts",
-	// ],
 
 	// Show the documentation of function in a popup
 	"enable_doc_popup": true,
