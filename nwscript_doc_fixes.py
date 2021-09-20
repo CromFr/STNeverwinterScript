@@ -134,6 +134,9 @@ def get_doc_fix(script, symbol) -> str:
             "EffectBonusHitpoints": ("Warning", """
                 Make sure nHitpoints > 0, otherwise this function will crash the server.
                 """),
+            "EffectSetScale": ("Warning", """
+                This function substract <code>(1 - fScaleN)</code> to the object scale (as reported by GetScale). A resulting scale of 0 in any axis can cause client issues and should be avoided.
+                """),
 
             "ActionRest": ("Note", """
                 Ignores bIgnoreNoRest parameter (does not ignore AREA no rest flag, but does ignore nearby hostile creatures)
@@ -172,6 +175,9 @@ def get_doc_fix(script, symbol) -> str:
                 """),
             "GetSpellId": ("Note", """
                 Can be used outside of spell scripts, as long as the effect was either created in a spell script or its spell ID was set using SetEffectSpellId.
+                """),
+            "SetScale": ("Note", """
+                Also works with negative values ;)
                 """),
         }
     }.get(script, {}).get(symbol, None)
