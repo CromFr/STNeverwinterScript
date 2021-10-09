@@ -29,6 +29,7 @@ def get_doc_fix(script, symbol) -> str:
             "SetPlaceableIllumination": ("Broken", "Does nothing"),
             "GetPlaceableIllumination": ("Broken", "Does nothing"),
             "EffectTimeStop": ("Broken", "Does nothing"),
+            "GetCasterClassSpellSchool": ("Broken", "Aborts the script execution, and crashes the server in some conditions"),
 
             "GetDescription": ("Warning", """
                 GetDescription will return "" if the description has not been previously set with SetDescription
