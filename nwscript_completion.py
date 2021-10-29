@@ -701,7 +701,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         return ret
 
 
-    nwn_types = r'(void|string|int|float|object|vector|location|effect|event|talent|itemproperty|action|json|struct\s+\w+)'
+    nwn_types = r'(void|string|int|float|object|vector|location|effect|event|talent|itemproperty|action|sqlquery|json|struct\s+\w+)'
     rgx_fun = re.compile(
         r'((?:^[ \t]*//[^\n]*?\n)*)'
         r'^[ \t]*' + nwn_types + r'\s+'
