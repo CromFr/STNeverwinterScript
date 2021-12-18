@@ -16,7 +16,7 @@ variables:
   # operator_keywords: 'and|and_eq|bitand|bitor|compl|not|not_eq|or|or_eq|xor|xor_eq|noexcept'
   control_keywords: 'break|case|continue|default|do|else|for|if|return|switch|while'
   # memory_operators: 'new|delete'
-  basic_types: 'action|effect|event|float|int|itemproperty|location|object|string|talent|vector|void'
+  basic_types: 'action|effect|event|float|int|itemproperty|location|object|string|talent|vector|void|json'
   before_tag: 'struct'
   # declspec: '__declspec\(\s*\w+(?:\([^)]+\))?\s*\)'
   # storage_classes: 'static|export|extern|friend|explicit|virtual|register|thread_local'
