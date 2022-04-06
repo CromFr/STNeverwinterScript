@@ -75,6 +75,6 @@ and `include_path` variables for Linux (examples provided).
 
 #### Install with PackageControl
 1. From Sublime Text: press <kbd>Ctrl+Shift+P</kbd>, write `PCInstall`, press <kbd>Enter</kbd>
-2. Search for `STNeverwinterScript`, press <kbd>Enter</kbd>
+2. Search for `Neverwinter Script syntax and build`, press <kbd>Enter</kbd>
 3. Follow the [Compiler installation](#Compiler-installation) instruction
   above, if you haven't already
