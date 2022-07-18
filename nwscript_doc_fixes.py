@@ -121,6 +121,9 @@ def get_doc_fix(script, symbol) -> str:
             "GetFirstObjectInShape": ("Warning", """
                 Make sure the area of lTarget is a valid area object, otherwise this function will <strong>crash the server</strong>.
                 """),
+            "GetStandardFactionReputation": ("Warning", """
+                Make sure oCreature is valid, otherwise this function will abort the script execution.
+                """),
             "GetBicFileName": ("Warning", """
                 Make sure that oPC is a valid object, otherwise this function will <strong>crash the server</strong>.
                 """),
