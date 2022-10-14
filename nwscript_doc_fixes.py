@@ -142,6 +142,9 @@ def get_doc_fix(script, symbol) -> str:
                 This function substract <code>(1 - fScaleN)</code> to the object scale (as reported by GetScale). A resulting scale of 0 in any axis can cause client issues and should be avoided.
                 """),
 
+            "AddListBoxRow": ("Note", """
+                sHideUnhide parameter uses <b>show</b> and <b>hide</b> values to show/hide elements
+                """),
             "ActionRest": ("Note", """
                 Ignores bIgnoreNoRest parameter (does not ignore AREA no rest flag, but does ignore nearby hostile creatures)
                 """),
