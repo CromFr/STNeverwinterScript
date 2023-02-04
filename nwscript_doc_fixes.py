@@ -4,7 +4,6 @@
 def get_doc_fix(script, symbol) -> str:
     return {
         "nwscript": {
-            "GetObjectByTagAndType": ("Broken", "Always returns OBJECT_INVALID"),
             "SetFog": ("Broken", "Does nothing"),
             "EffectDisintegrate": ("Broken", "Does nothing"),
             "EffectDisappearAppear": ("Broken", "Creature does not reappear at passed in location"),
@@ -31,6 +30,16 @@ def get_doc_fix(script, symbol) -> str:
             "EffectTimeStop": ("Broken", "Does nothing"),
             "GetCasterClassSpellSchool": ("Broken", "Aborts the script execution, and crashes the server in some conditions"),
 
+            "GetObjectByTagAndType": ("Warning", """
+                nObjectType parameter does not use OBJECT_TYPE constants. You must instead use the following constants:<br>
+                AREA = 0x04          CREATURE = 0x05  ITEM = 0x06<br>
+                TRIGGER = 0x07       PLACEABLE = 0x09 DOOR = 0x0A<br>
+                AREAOFEFFECT = 0x0B  WAYPOINT = 0x0C  ENCOUNTER = 0x0D<br>
+                STORE = 0x0E         SOUND = 0x10     STATIC_CAMERA = 0x12<br>
+                ENV_OBJECT = 0x13    TREE = 0x14      LIGHT = 0x15<br>
+                PLACED_EFFECT = 0x16<br>
+                <small>GUI = 0x01 TILE = 0x02 MODULE = 0x03 PROJECTILE = 0x08 DYNAMIC = 0x11 PORTAL = 0x0F</small>
+                """),
             "GetDescription": ("Warning", """
                 GetDescription will return "" if the description has not been previously set with SetDescription
                 """),
