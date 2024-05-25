@@ -43,6 +43,9 @@ def get_doc_fix(script, symbol) -> str:
             "GetDescription": ("Warning", """
                 GetDescription will return "" if the description has not been previously set with SetDescription
                 """),
+            "GetItemIcon": ("Warning", """
+                Make sure oTarget is valid, otherwise this function will crash the server.
+                """),
             "StringToObject": ("Warning", """
                 StringToObject only converts decimal values and does not handle Hex values that are returned by ObjectToString.
                 """),
