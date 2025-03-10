@@ -4,6 +4,7 @@ import os
 import re
 import time
 import threading
+from typing import Any
 from .nwscript_doc_fixes import get_doc_fix
 
 def plugin_loaded():
@@ -180,6 +181,16 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         # directory => set() of include-only files
         self.include_completions = None
 
+    def get_settings_value(self, key: str) -> Any:
+        proj = sublime.active_window().project_data()
+        for k in ("settings", "nwscript", key):
+            if proj is not None:
+                proj = proj.get(k)
+        if proj is not None:
+            return proj
+
+        return self.settings.get(key)
+
     def on_query_completions(self, view: sublime.View, prefix: str, locations: (str, str, (int, int))) -> list:
         if not view.scope_name(locations[0]).startswith("source.nss"):
             return
@@ -213,7 +224,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             )
 
         # Show include error if looking for symbol completions
-        if len(include_errors) > 0 and self.settings.get("enable_missing_include_popup") is True:
+        if len(include_errors) > 0 and self.get_settings_value("enable_missing_include_popup") is True:
             text = "<br>".join(include_errors)
             sublime.active_window().active_view().show_popup(
                 '<html style="background-color: color(var(--background) blend(red 75%));"><p>' + text + '</p></html>',
@@ -229,13 +240,13 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if not view.scope_name(point).startswith("source.nss"):
             return
 
-        if self.settings.get("enable_doc_popup") is False:
+        if self.get_settings_value("enable_doc_popup") is False:
             return
 
         module_path, file_path = self.get_opened_file_paths(view)
         file_data = view.substr(sublime.Region(0, view.size()))
 
-        if self.settings.get("parse_on_modified") is True:
+        if self.get_settings_value("parse_on_modified") is True:
             self.parse_script_tree(module_path, file_path, file_data)
 
         if view.substr(point) in ['(', ')'] or point != view.sel()[0].end():
@@ -253,7 +264,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         if not view.scope_name(point).startswith("source.nss"):
             return
 
-        if self.settings.get("enable_doc_popup") is False:
+        if self.get_settings_value("enable_doc_popup") is False:
             return
 
         # Ignore hover over non selected text
@@ -393,7 +404,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         path_list = []
         if module_path is not None:
             path_list.append(module_path)
-        path_list.extend(self.settings.get("include_path"))
+        path_list.extend(self.get_settings_value("include_path"))
 
         for path in path_list:
             file = os.path.join(path, resref + ".nss")
@@ -514,7 +525,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
                     doc = Documentation()
                     doc.signature = ("f", fun_type, fun_name, args)
                     doc.script_resref = resref
-                    doc.fix = self.settings.get("doc_fixes").get(resref, {}).get(fun_name, None)
+                    doc.fix = self.get_settings_value("doc_fixes").get(resref, {}).get(fun_name, None)
                     if doc.fix is None:
                         doc.fix = get_doc_fix(resref, fun_name)
 
@@ -636,7 +647,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
             path_list = []
             if module_path is not None:
                 path_list.append(module_path)
-            path_list.extend(self.settings.get("include_path"))
+            path_list.extend(self.get_settings_value("include_path"))
 
             for dir_path in path_list:
                 # Don't go through already parsed folders
@@ -673,7 +684,7 @@ class NWScriptCompletion(sublime_plugin.EventListener):
         path_list = []
         if module_path is not None:
             path_list.append(module_path)
-        path_list.extend(self.settings.get("include_path"))
+        path_list.extend(self.get_settings_value("include_path"))
 
         ret = []
         for path in path_list:

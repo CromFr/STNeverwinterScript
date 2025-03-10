@@ -21,6 +21,21 @@
 Note: This package has been designed for NWN2, but it should work with NWN1 as
 well.
 
+# Configuration
+
+Global preferences can be found in _Preferences -> Package settings -> STNeverwinterScript -> Settings_
+
+Project-specific preferences can be set in the `.sublime-project` file:
+```json
+{
+  "settings": {
+    "nwscript": {
+      "compiler_args": ["-q", "-o", "-y", "-v1.70", "-e"],
+    }
+  }
+}
+```
+
 # Installation
 
 ## Compiler installation (required for using this package)

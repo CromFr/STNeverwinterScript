@@ -7,6 +7,7 @@ import multiprocessing
 import os
 import re
 import time
+from typing import Any
 
 def plugin_loaded():
     nwscript_builder.settings = sublime.load_settings('nwscript.sublime-settings')
@@ -54,7 +55,15 @@ class nwscript_builder(sublime_plugin.WindowCommand):
         self.cache = {}
         self.cached_include_paths = None
 
+    def get_settings_value(self, key: str) -> Any:
+        proj = self.window.project_data()
+        for k in ("settings", "nwscript", key):
+            if proj is not None:
+                proj = proj.get(k)
+        if proj is not None:
+            return proj
 
+        return self.settings.get(key)
 
     # Setup build results pane and start run_build in a side thread
     def run(self, build_type="smart", kill=False, **kargs):
@@ -96,6 +105,8 @@ class nwscript_builder(sublime_plugin.WindowCommand):
     # Main build function
     def run_build(self, working_dir: str, build_type: str):
         # Stop currently running processes
+        self.window.project_data()
+
         if self.build_lock.locked():
             self.print_build_results("STOPPING CURRENT BUILD\n")
             self.stop_build = True
@@ -169,7 +180,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
 
     def init_includes_cache(self) -> None:
-        cache = self.settings.get("include_path")
+        cache = self.get_settings_value("include_path")
 
         # Check if include list changed
         if self.cached_include_paths == cache:
@@ -349,7 +360,7 @@ class nwscript_builder(sublime_plugin.WindowCommand):
 
     # Search through current dir and include paths to find a given script
     def find_script_by_name(self, working_dir, script_name) -> Script:
-        for folder in [working_dir] + self.settings.get("include_path"):
+        for folder in [working_dir] + self.get_settings_value("include_path"):
             script = self.cache[folder].scripts.get(script_name, None)
             if script is not None:
                 return script
@@ -383,9 +394,9 @@ class nwscript_builder(sublime_plugin.WindowCommand):
     # Compile many files by spreading them across multiple compiler processes
     def compile_files(self, working_dir, script_list: list):
         # Get compiler config
-        compiler_cmd = self.settings.get("compiler_cmd")
-        compiler_args = self.settings.get("compiler_args")
-        include_path = self.settings.get("include_path")
+        compiler_cmd = self.get_settings_value("compiler_cmd")
+        compiler_args = self.get_settings_value("compiler_args")
+        include_path = self.get_settings_value("include_path")
         include_args = []
         for inc in include_path:
             include_args.extend(["-i", inc])
